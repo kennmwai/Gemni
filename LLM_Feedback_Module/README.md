@@ -11,7 +11,6 @@ Features
 
 * **Real-time Feedback**: Generate instant feedback on student submissions using our LLM technology.
 * **Inference Capabilities**: Evaluate models for text, images, and more using our AI/ML API integration.
-* **Secure API Key Management**: Manage your API keys securely with our built-in key management system.
 * **Broad Model Selection**: Access a diverse range of models for various AI tasks, including text completion, image inference, speech-to-text, and text-to-speech.
 
 Getting Started

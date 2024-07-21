@@ -1,4 +1,8 @@
 # Configuration file for the LLM Feedback Module (wil use .env later for  python-dotenv)
+import os
+
+def get_api_key():
+    return os.getenv("API_KEY", "YOUR_DEFAULT_API_KEY")
 
 # API Keys
 AI_ML_API_KEY = "YOUR_AI_ML_API_KEY_HERE"
