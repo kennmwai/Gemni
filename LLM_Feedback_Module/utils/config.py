@@ -6,6 +6,8 @@ def get_api_key():
     return os.getenv("AIML_API_KEY", "YOUR_DEFAULT_API_KEY")
 
 
+# Ignore these as would be used later:
+#
 # API Keys
 AI_ML_API_KEY = "YOUR_AI_ML_API_KEY_HERE"
 LLM_MODEL_API_KEY = "YOUR_LLM_MODEL_API_KEY_HERE"
