@@ -1,14 +1,17 @@
 from ai_ml_api.speech_to_text_api import SpeechToTextAPI
 from utils.config import get_api_key
 
+
 class SpeechToText:
+
     def __init__(self):
         self.api_key = get_api_key()
         self.api = SpeechToTextAPI(self.api_key)
 
-    def convert_audio_to_text(self, audio_url, model="#g1_nova-2-general"):
+    def convert_audio_to_text(self, audio_url, model="g1_whisper-tiny"):
         text = self.api.convert_audio_to_text(audio_url, model)
         return text
+
 
 # Example usage
 if __name__ == "__main__":

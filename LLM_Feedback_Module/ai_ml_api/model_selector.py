@@ -2,25 +2,27 @@ import requests
 import random
 import json
 from openai import OpenAI
-from utils.config import get_api_key
+from utils.config import get_api_key, DEFAULT_SYSTEM_PROMPT
 
 
 class ModelSelector:
+
     def __init__(self, base_url):
         self.api_key = get_api_key()
         self.base_url = base_url
         self.headers = {"Authorization": f"Bearer {self.api_key}"}
-        self.openai = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
     def get_available_models(self):
-        response = requests.get(f"{self.base_url}/models", headers=self.headers)
+        response = requests.get(f"{self.base_url}/models",
+                                headers=self.headers)
         response.raise_for_status()
         return json.loads(response.text)
 
     def compare_models(
         self,
         prompt: str,
-        system_prompt: str = "You are an AI assistant that only responds with jokes.",
+        system_prompt: str = DEFAULT_SYSTEM_PROMPT,
         num_models=2,
     ):
         vendor_by_model = self.get_available_models()
@@ -29,10 +31,16 @@ class ModelSelector:
         selected_models = models[:num_models]
 
         for model in selected_models:
-            completion = self.openai.chat.completions.create(
+            completion = self.client.chat.completions.create(
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    },
                 ],
                 model=model,
             )

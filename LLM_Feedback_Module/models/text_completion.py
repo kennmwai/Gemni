@@ -3,12 +3,15 @@ from utils.config import get_api_key
 
 
 class TextCompletion:
+
     def __init__(self):
         self.api_key = get_api_key()
         self.api = TextCompletionAPI(self.api_key)
 
-    def generate_response(self, prompt, model="mistralai/Mistral-7B-Instruct-v0.2"):
-        response = self.api.generate_response(prompt)
+    def generate_response(self,
+                          prompt,
+                          model="mistralai/Mistral-7B-Instruct-v0.2"):
+        response = self.api.generate_response(prompt, model)
         return response
 
 
