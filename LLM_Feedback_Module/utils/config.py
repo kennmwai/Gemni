@@ -1,9 +1,13 @@
 # Configuration file for the LLM Feedback Module (wil use .env later for  python-dotenv)
 import os
 
-def get_api_key():
-    return os.getenv("API_KEY", "YOUR_DEFAULT_API_KEY")
 
+def get_api_key():
+    return os.getenv("AIML_API_KEY", "YOUR_DEFAULT_API_KEY")
+
+
+# Ignore these as would be used later:
+#
 # API Keys
 AI_ML_API_KEY = "YOUR_AI_ML_API_KEY_HERE"
 LLM_MODEL_API_KEY = "YOUR_LLM_MODEL_API_KEY_HERE"
@@ -25,15 +29,12 @@ FEEDBACK_NUM_SENTENCES = 3
 # Resource Links
 RESOURCE_LINKS = {
     "MSQ": "https://kennmwai.com/msq-resource",
-    "OEQ": "https://kennmwai.com/oeq-resource"
+    "OEQ": "https://kennmwai.com/oeq-resource",
 }
 
 # Assessment Settings
 ASSESSMENT_TYPES = ["MSQ", "OEQ"]
-ASSESSMENT_WEIGHTAGES = {
-    "MSQ": 0.6,
-    "OEQ": 0.4
-}
+ASSESSMENT_WEIGHTAGES = {"MSQ": 0.6, "OEQ": 0.4}
 
 # Debug Settings
 DEBUG_MODE = False
