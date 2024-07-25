@@ -36,10 +36,11 @@ logging.basicConfig(level=logging.DEBUG, format=log_format)
 cached_lines: set[str] = set()
 total_run_time: float = 0
 script_dir = os.path.dirname(os.path.realpath(__file__))
-certfile = os.path.join(script_dir, "../ssl/ssl.pem")
-keyfile = os.path.join(script_dir, "../ssl/private.key")
-ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-ssl_context.load_cert_chain(certfile, keyfile)
+if SSL:
+    certfile = os.path.join(script_dir, "../ssl/ssl.pem")
+    keyfile = os.path.join(script_dir, "../ssl/private.key")
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_cert_chain(certfile, keyfile)
 AIML_API_KEY = os.getenv("AIML_API_KEY")
 system_content = "You are a travel agent. Be descriptive and helpful."
 
