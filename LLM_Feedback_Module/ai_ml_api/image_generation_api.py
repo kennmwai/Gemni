@@ -7,7 +7,7 @@ class ImageGenerationAPI:
     def __init__(self, api_key):
         self.api_key = api_key
 
-    def generate_image(self, prompt, model):
+    def generate_image(self, prompt: str, model: str):
         headers = {"Authorization": f"Bearer {self.api_key}"}
         payload = {
             "prompt": prompt,
