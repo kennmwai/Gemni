@@ -13,9 +13,10 @@ except ImportError:
 
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
-cafile = os.path.join(script_dir, "../ssl/ssl.pem")
-ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-ssl_context.load_verify_locations(cafile)
+if SSL:
+    cafile = os.path.join(script_dir, "../ssl/ssl.pem")
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_context.load_verify_locations(cafile)
 HOST = "localhost"
 
 
