@@ -14,17 +14,20 @@ class TextCompletionAPI:
                           prompt,
                           model,
                           system_prompt=DEFAULT_SYSTEM_PROMPT):
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        try:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    },
+                ],
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"Error getting response from model {model}: {e}")
