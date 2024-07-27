@@ -16,6 +16,7 @@ AI_ML_API_KEY = "YOUR_AI_ML_API_KEY_HERE"
 LLM_MODEL_API_KEY = "YOUR_LLM_MODEL_API_KEY_HERE"
 
 # Model Settings
+BASE_URL = "https://api.aimlapi.com"
 DEFAULT_SYSTEM_PROMPT = "You are an AI assistant that only responds with jokes."
 LLM_MODEL_NAME = "llm-feedback-model"
 LLM_MODEL_VERSION = "1.0.0"
