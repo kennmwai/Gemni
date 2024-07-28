@@ -1,4 +1,6 @@
+import logging
 from openai import OpenAI
+import os
 
 
 class LLMFeedback:
@@ -9,130 +11,60 @@ class LLMFeedback:
         self.model = model
         self.system_prompt = system_prompt
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        logging.basicConfig(level=logging.INFO)
 
     def get_llm_feedback(self, student_work, assessment_type):
         prompt = f"Provide feedback on the following student work: {student_work}. The assessment type is {assessment_type}."
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        return self._make_request(prompt)
 
     def validate_answer(self, student_answer, correct_answer):
         prompt = f"Compare the student's answer '{student_answer}' with the correct answer '{correct_answer}'. Is the student's answer correct?"
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        return self._make_request(prompt)
 
     def generate_suggested_enhancements(self, student_work):
         prompt = f"Suggest enhancements for the following student work: {student_work}."
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        return self._make_request(prompt)
 
     def provide_peer_comparison(self, student_work, peer_works):
         prompt = f"Compare the following student work: {student_work} with the peer works: {peer_works}."
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        return self._make_request(prompt)
 
     def generate_resource_links(self, topic):
         prompt = f"Provide resource links for the topic: {topic}."
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        return self._make_request(prompt)
 
     def evaluate_effort(self, student_work):
         prompt = f"Evaluate the effort put into the following student work: {student_work}."
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        return self._make_request(prompt)
 
     def get_student_opinion(self, student_work):
         prompt = f"What do you think about the following student work: {student_work}?"
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ],
-        )
-        return response.choices[0].message.content
+        return self._make_request(prompt)
+
+    def _make_request(self, prompt):
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    },
+                ],
+            )
+            logging.info(f"Request prompt: {prompt}")
+            # logging.info(f"Response: {response}")
+            return response.choices[0].message.content
+        except Exception as e:
+            logging.error(f"Error making request: {e}")
+            return f"An error occurred: {e}"
 
 
 if __name__ == "__main__":
-    import os
-
     system_prompt = "You are an AI assistant who knows everything about education and can provide feedback on student work."
     llm_feedback = LLMFeedback(
         api_key=os.getenv("AIML_API_KEY"),
@@ -140,8 +72,9 @@ if __name__ == "__main__":
         model="mistralai/Mistral-7B-Instruct-v0.2",
         system_prompt=system_prompt,
     )
-    # will pass
+    # Example usage
     print(
         llm_feedback.get_llm_feedback(
+            student_work=
             "To be is not To Be but as a be-ing I am whom I am as I.",
-            "essay"))
+            assessment_type="essay"))
