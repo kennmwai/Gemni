@@ -1,8 +1,8 @@
-import tkinter as tk
-from tkinter import ttk, scrolledtext, simpledialog
-import socket
 import json
+import socket
 import threading
+import tkinter as tk
+from tkinter import scrolledtext, simpledialog, ttk
 
 
 class LLMFeedbackClient:
@@ -14,6 +14,7 @@ class LLMFeedbackClient:
 
         self.socket = None
         self.connected = False
+        self.reconnect_attempt = 0
 
         self.create_widgets()
         self.connect_to_server()
@@ -56,6 +57,20 @@ class LLMFeedbackClient:
                                       textvariable=self.status_var)
         self.status_label.pack(pady=5)
 
+        # Reconnect button to be shown only if status is Not connected
+        self.reconnect_button = ttk.Button(self.master,
+                                           text="Reconnect",
+                                           command=self.reconnect_to_server)
+        self.reconnect_button.pack(pady=10)
+        self.update_reconnect_button()
+
+    def update_reconnect_button(self):
+        if self.connected:
+            self.reconnect_button.pack_forget()
+        else:
+            self.reconnect_button.pack()
+        self.master.after(100, self.update_reconnect_button)
+
     def connect_to_server(self):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -65,6 +80,16 @@ class LLMFeedbackClient:
             threading.Thread(target=self.receive_messages, daemon=True).start()
         except Exception as e:
             self.status_var.set(f"Connection failed: {str(e)}")
+            self.reconnect_attempt += 1
+            if self.reconnect_attempt < 5:
+                self.master.after(1000, self.connect_to_server)
+            else:
+                self.status_var.set(
+                    "Failed to connect to server. Please try again later.")
+
+    def reconnect_to_server(self):
+        self.reconnect_attempt = 0
+        self.connect_to_server()
 
     def send_message(self):
         if not self.connected:

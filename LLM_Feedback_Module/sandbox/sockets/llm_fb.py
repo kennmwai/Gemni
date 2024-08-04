@@ -3,7 +3,7 @@ import json
 import logging
 import os
 
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 
 
 class LLMFeedback:
@@ -47,7 +47,15 @@ class LLMFeedback:
     def evaluate_effort(self, student_work):
         prompt = f"Evaluate the effort put into the following student work: {student_work}. Rate the work on a scale of 1-5, where 1 is poor and 5 is excellent."
         response = self._make_request(prompt)
-        rating = int(response["response"].split(" ")[-1])
+
+        if response["response"] is None:
+            return {"response": "Failed to evaluate student work."}
+
+        try:
+            rating = int(response["response"].split()[-1])
+        except ValueError:
+            return {"response": "Invalid rating received."}
+
         if rating == 1:
             feedback = "The student work is poor and lacks effort. It needs significant improvement."
         elif rating == 2:

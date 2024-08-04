@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 import socket
-# import selectors
+import selectors
 import threading
 from typing import Callable
 
@@ -15,33 +15,34 @@ class SocketServer:
         self.server_socket = None
         self.clients = []
         self.handlers = {}
-        # self.sel = selectors.DefaultSelector()
+        self.sel = selectors.DefaultSelector()
 
         logger = logging.getLogger(__file__)
         log_format = "%(levelname)s:%(name)s:%(asctime)s - %(message)s"
         logging.basicConfig(level=logging.DEBUG, format=log_format)
 
     def start(self):
-        try:
-            self.server_socket = socket.socket(socket.AF_INET,
-                                               socket.SOCK_STREAM)
-            self.server_socket.bind((self.host, self.port))
-            self.server_socket.listen(5)
-            logging.info(f"Server listening on {self.host}:{self.port}")
+        self.server_socket = socket.socket(socket.AF_INET,
+                                           socket.SOCK_STREAM)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(5)
+        self.server_socket.settimeout(1.0)
+        logging.info(f"Server listening on {self.host}:{self.port}")
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                while True:
-                    try:
-                        client_socket, addr = self.server_socket.accept()
-                        logging.info(f"Accepted connection from {addr}")
-                        executor.submit(self.handle_client, client_socket, addr)
-                    except KeyboardInterrupt:
-                        logging.info("Server stopped by user")
-                        break
-                    except Exception as e:
-                        logging.error(f"Error starting server: {e}")
-        except Exception as e:
-            logging.error(f"Error starting server: {e}")
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            while True:
+                try:
+                    client_socket, addr = self.server_socket.accept()
+                    logging.info(f"Accepted connection from {addr}")
+                    executor.submit(self.handle_client, client_socket,
+                                    addr)
+                except KeyboardInterrupt:
+                    logging.info("Server stopped by user")
+                    break
+                except socket.timeout:
+                    continue
+                except Exception as e:
+                    logging.error(f"Error starting server: {e}")
 
     def handle_client(self, client_socket, addr):
         self.clients.append(client_socket)
