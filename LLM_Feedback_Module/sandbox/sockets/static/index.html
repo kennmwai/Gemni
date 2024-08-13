@@ -1,0 +1,44 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime LLM Feedback for Student Assessment</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; }
+        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
+        select, button { margin-bottom: 10px; }
+        #output { margin-top: 20px; border: 1px solid #ccc; padding: 10px; min-height: 100px; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Realtime LLM Feedback for Student Assessment</h1>
+    <textarea id="studentWork" placeholder="Enter student work here..."></textarea>
+    <select id="actionSelect">
+        <option value="get_feedback">Get Feedback</option>
+        <option value="validate_answer">Validate Answer</option>
+        <option value="suggest_enhancements">Suggest Enhancements</option>
+        <option value="peer_comparison">Peer Comparison</option>
+        <option value="resource_links">Resource Links</option>
+        <option value="evaluate_effort">Evaluate Effort</option>
+        <option value="student_opinion">Student Opinion</option>
+    </select>
+    <select id="assessmentType">
+        <option value="essay">Essay</option>
+        <option value="short_answer">Short Answer</option>
+        <option value="multiple_choice">Multiple Choice</option>
+        <option value="true_false">True/False</option>
+    </select>
+    <button onclick="sendMessage()">Submit</button>
+    <button onclick="clearOutput()">Clear Output</button>
+    <button onclick="reconnect()">Reconnect</button>
+    <button onclick="saveStudentWork()">Save Student Work</button>
+    <button onclick="loadStudentWork()">Load Student Work</button>
+    <div id="output"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
