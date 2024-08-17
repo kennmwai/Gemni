@@ -352,6 +352,41 @@ class Database:
             return [LLMRequest(*row) for row in cursor.fetchall()]
 
 
+def get_correct_answer(self, assignment_id: int) -> Optional[str]:
+    with self._db_connection(self.db_path) as conn:
+        cursor = conn.cursor()
+        sql = """
+            SELECT correct_answer FROM Assignments WHERE assignment_id = ?
+        """
+        cursor.execute(sql, (assignment_id,))
+        result = cursor.fetchone()
+        return result[0] if result else None
+
+
+def get_peer_works(self, assignment_id: int, exclude_work_id: int) -> List[str]:
+    with self._db_connection(self.db_path) as conn:
+        cursor = conn.cursor()
+        sql = """
+            SELECT content FROM StudentWork
+            WHERE assignment_id = ? AND work_id != ?
+        """
+        cursor.execute(sql, (assignment_id, exclude_work_id))
+        return [row[0] for row in cursor.fetchall()]
+
+
+def get_topic_by_assignment(self, assignment_id: int) -> Optional[str]:
+    with self._db_connection(self.db_path) as conn:
+        cursor = conn.cursor()
+        sql = """
+            SELECT topic FROM ResourceLinks
+            JOIN Assignments ON Assignments.title = ResourceLinks.topic
+            WHERE assignment_id = ?
+        """
+        cursor.execute(sql, (assignment_id,))
+        result = cursor.fetchone()
+        return result[0] if result else None
+
+
 if __name__ == "__main__":
     db = Database("temp.db")
 
