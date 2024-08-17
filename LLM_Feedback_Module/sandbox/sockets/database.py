@@ -127,6 +127,16 @@ class LLMRequest:
     created_at: Optional[str] = None
 
 
+@dataclass
+class AssessmentContent:
+    student_work: str
+    assessment_type: str
+    correct_answer: Optional[str] = None
+    peer_works: Optional[str] = None
+    topic: Optional[str] = None
+    work_id: Optional[int] = None
+
+
 class Database:
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -385,6 +395,30 @@ def get_topic_by_assignment(self, assignment_id: int) -> Optional[str]:
         cursor.execute(sql, (assignment_id,))
         result = cursor.fetchone()
         return result[0] if result else None
+
+
+def get_assessment_content(self, work_id: int) -> Optional[AssessmentContent]:
+    # Retrieve student work
+    student_work = self.get_student_work_by_id(work_id)
+    if not student_work:
+        return None
+
+    # Retrieve assignment
+    assignment = self.get_assignment_by_id(student_work.assignment_id)
+    if not assignment:
+        return None
+
+    # Prepare assessment content
+    assessment_content = AssessmentContent(
+        student_work=student_work.content,
+        assessment_type=assignment.title,
+        correct_answer=self.get_correct_answer(assignment.assignment_id),
+        peer_works=", ".join(self.get_peer_works(assignment.assignment_id, work_id)),
+        topic=self.get_topic_by_assignment(assignment.assignment_id),
+        work_id=student_work.work_id,
+    )
+
+    return assessment_content
 
 
 if __name__ == "__main__":
