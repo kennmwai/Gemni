@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS Assignments (
     title TEXT NOT NULL,
     description TEXT,
     assessment_type_id INTEGER,
+    correct_answer TEXT,
     FOREIGN KEY (assessment_type_id) REFERENCES AssessmentTypes(assessment_type_id)
 );
 """
@@ -89,6 +90,7 @@ class Assignment:
     title: str
     description: str
     assessment_type_id: int
+    correct_answer: Optional[str] = None
     assignment_id: Optional[int] = None
 
 
@@ -208,13 +210,14 @@ class Database:
     def add_assignment(self, assignment: Assignment) -> Optional[int]:
         with self._db_connection(self.db_path) as conn:
             cursor = conn.cursor()
-            sql = "INSERT INTO Assignments (title, description, assessment_type_id) VALUES (?, ?, ?)"
+            sql = "INSERT INTO Assignments (title, description, assessment_type_id, correct_answer) VALUES (?, ?, ?, ?)"
             cursor.execute(
                 sql,
                 (
                     assignment.title,
                     assignment.description,
                     assignment.assessment_type_id,
+                    assignment.correct_answer,
                 ),
             )
             conn.commit()
@@ -252,18 +255,36 @@ class Database:
             result = cursor.fetchone()
             return result[0] if result else None
 
+    def get_assessment_type_by_id(self, assessment_type_id: int) -> Optional[str]:
+        with self._db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT name FROM AssessmentTypes WHERE assessment_type_id = ?",
+                (assessment_type_id,),
+            )
+            result = cursor.fetchone()
+            return result[0] if result else None
+
     def get_assignment_by_id(self, assignment_id: int) -> Optional[Assignment]:
         with self._db_connection(self.db_path) as conn:
             cursor = conn.cursor()
             sql = """
-                SELECT a.assignment_id, a.title, a.description, a.assessment_type_id, at.name
+                SELECT a.assignment_id, a.title, a.description, a.assessment_type_id, a.correct_answer, at.name
                 FROM Assignments a
                 JOIN AssessmentTypes at ON a.assessment_type_id = at.assessment_type_id
                 WHERE a.assignment_id = ?
             """
             cursor.execute(sql, (assignment_id,))
             row = cursor.fetchone()
-            return Assignment(*row) if row else None
+            if row:
+                return Assignment(
+                    assignment_id=row[0],
+                    title=row[1],
+                    description=row[2],
+                    assessment_type_id=row[3],
+                    correct_answer=row[4],
+                )
+            return None
 
     def get_all_assignments(self) -> List[Assignment]:
         with self._db_connection(self.db_path) as conn:
@@ -282,7 +303,11 @@ class Database:
     def get_student_work_by_id(self, work_id: int) -> Optional[StudentWork]:
         with self._db_connection(self.db_path) as conn:
             cursor = conn.cursor()
-            sql = "SELECT * FROM StudentWork WHERE work_id = ?"
+            sql = """
+                SELECT student_id, assignment_id, content, work_id, submission_date
+                FROM StudentWork
+                WHERE work_id = ?
+            """
             cursor.execute(sql, (work_id,))
             row = cursor.fetchone()
             return StudentWork(*row) if row else None
@@ -361,64 +386,61 @@ class Database:
             cursor.execute("SELECT * FROM LLMRequests")
             return [LLMRequest(*row) for row in cursor.fetchall()]
 
+    def get_correct_answer(self, assignment_id: int) -> Optional[str]:
+        with self._db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            sql = """
+                SELECT correct_answer FROM Assignments WHERE assignment_id = ?
+            """
+            cursor.execute(sql, (assignment_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
 
-def get_correct_answer(self, assignment_id: int) -> Optional[str]:
-    with self._db_connection(self.db_path) as conn:
-        cursor = conn.cursor()
-        sql = """
-            SELECT correct_answer FROM Assignments WHERE assignment_id = ?
-        """
-        cursor.execute(sql, (assignment_id,))
-        result = cursor.fetchone()
-        return result[0] if result else None
+    def get_peer_works(self, assignment_id: int, exclude_work_id: int) -> List[str]:
+        with self._db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            sql = """
+                SELECT content FROM StudentWork
+                WHERE assignment_id = ? AND work_id != ?
+            """
+            cursor.execute(sql, (assignment_id, exclude_work_id))
+            return [row[0] for row in cursor.fetchall()]
 
+    def get_topic_by_assignment(self, assignment_id: int) -> Optional[str]:
+        with self._db_connection(self.db_path) as conn:
+            cursor = conn.cursor()
+            sql = """
+                SELECT topic FROM ResourceLinks
+                JOIN Assignments ON Assignments.title = ResourceLinks.topic
+                WHERE assignment_id = ?
+            """
+            cursor.execute(sql, (assignment_id,))
+            result = cursor.fetchone()
+            return result[0] if result else None
 
-def get_peer_works(self, assignment_id: int, exclude_work_id: int) -> List[str]:
-    with self._db_connection(self.db_path) as conn:
-        cursor = conn.cursor()
-        sql = """
-            SELECT content FROM StudentWork
-            WHERE assignment_id = ? AND work_id != ?
-        """
-        cursor.execute(sql, (assignment_id, exclude_work_id))
-        return [row[0] for row in cursor.fetchall()]
+    def get_assessment_content(self, work_id: int) -> Optional[AssessmentContent]:
+        student_work = self.get_student_work_by_id(work_id)
+        if not student_work:
+            return None
 
+        assignment = self.get_assignment_by_id(student_work.assignment_id)
+        if not assignment:
+            return None
 
-def get_topic_by_assignment(self, assignment_id: int) -> Optional[str]:
-    with self._db_connection(self.db_path) as conn:
-        cursor = conn.cursor()
-        sql = """
-            SELECT topic FROM ResourceLinks
-            JOIN Assignments ON Assignments.title = ResourceLinks.topic
-            WHERE assignment_id = ?
-        """
-        cursor.execute(sql, (assignment_id,))
-        result = cursor.fetchone()
-        return result[0] if result else None
+        assessment_type = self.get_assessment_type_by_id(assignment.assessment_type_id)
+        peer_works = self.get_peer_works(assignment.assignment_id, work_id)
 
+        # Prepare assessment content
+        assessment_content = AssessmentContent(
+            student_work=student_work.content,
+            assessment_type=assessment_type,
+            correct_answer=self.get_correct_answer(assignment.assignment_id),
+            peer_works=", ".join(peer_works),
+            topic=self.get_topic_by_assignment(assignment.assignment_id),
+            work_id=student_work.work_id,
+        )
 
-def get_assessment_content(self, work_id: int) -> Optional[AssessmentContent]:
-    # Retrieve student work
-    student_work = self.get_student_work_by_id(work_id)
-    if not student_work:
-        return None
-
-    # Retrieve assignment
-    assignment = self.get_assignment_by_id(student_work.assignment_id)
-    if not assignment:
-        return None
-
-    # Prepare assessment content
-    assessment_content = AssessmentContent(
-        student_work=student_work.content,
-        assessment_type=assignment.title,
-        correct_answer=self.get_correct_answer(assignment.assignment_id),
-        peer_works=", ".join(self.get_peer_works(assignment.assignment_id, work_id)),
-        topic=self.get_topic_by_assignment(assignment.assignment_id),
-        work_id=student_work.work_id,
-    )
-
-    return assessment_content
+        return assessment_content
 
 
 if __name__ == "__main__":
@@ -466,6 +488,10 @@ if __name__ == "__main__":
     work_id = db.add_student_work(work)
     print(f"Wrk ID:{work_id}")
 
+    student_work = db.get_student_work_by_id(work_id)
+    print(f"Retrieved StudentWork: {student_work}")
+
+
     # Add feedback
     feedback = Feedback(
         work_id=work_id, feedback_type="general", content="Good effort, but..."
@@ -494,3 +520,6 @@ if __name__ == "__main__":
     # Fetch resource links by topic
     resource_links = db.get_resource_links_by_topic(topic="Education")
     print(resource_links)
+
+    assessment_content = db.get_assessment_content(work_id)
+    print(assessment_content)
