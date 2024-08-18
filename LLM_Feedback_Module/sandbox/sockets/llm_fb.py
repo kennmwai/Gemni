@@ -14,13 +14,13 @@ from database import (
 
 
 class LLMFeedback:
-    def __init__(self, api_key, base_url, model, system_prompt, db_path):
+    def __init__(self, api_key, base_url, model, system_prompt, db: Database):
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
         self.system_prompt = system_prompt
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-        self.db = Database(db_path)
+        self.db = db
 
         log_format = "%(levelname)s:%(name)s:%(asctime)s - %(message)s"
         logging.getLogger(__file__)
@@ -50,14 +50,33 @@ class LLMFeedback:
         return response
 
     def validate_answer(self, content):
+        if not content.correct_answer:
+            return {"error": "No correct answer provided for validation."}
+
         student_answer = content.student_work
         correct_answer = content.correct_answer
         prompt = f"Compare the student's answer '{student_answer}' with the correct answer '{correct_answer}'. Is the student's answer correct?"
-        return self._make_request(prompt)
+        validation_content = self._make_request(prompt)
+
+        feedback = Feedback(
+            work_id=content.work_id,
+            feedback_type="validation",
+            content=validation_content["reposnse"],
+        )
+        self.db.add_feedback(feedback)
+        return validation_content
 
     def generate_suggested_enhancements(self, content):
         prompt = f"Suggest enhancements for the following student work: {content.student_work}."
-        return self._make_request(prompt)
+        enhancements_content = self._make_request(prompt)
+
+        feedback = Feedback(
+            work_id=content.work_id,
+            feedback_type="enhancements",
+            content=enhancements_content["reposnse"],
+        )
+        self.db.add_feedback(feedback)
+        return enhancements_content
 
     def provide_peer_comparison(self, content):
         prompt = f"Compare the following student work: {content.student_work} with the peer works: {content.peer_works}."
@@ -65,18 +84,20 @@ class LLMFeedback:
 
     def generate_resource_links(self, content):
         prompt = f"Provide resource links for the topic: {content.topic}."
-        response = self._make_request(prompt)
+        resources_content = self._make_request(prompt)
 
-        if "response" in response:
+        if "response" in resources_content:
             # Assuming the response contains a list of resource links
-            links = response["response"].split("\n")
+            links = resources_content["response"].split("\n")
             for link in links:
-                topic, url = link.split(": ")
-                self.db.add_resource_link(
-                    ResourceLink(topic=topic, url=url, description="")
+                topic, resource = link.split(": ")
+                url, description = resource.split(" - ")
+                resource_link = ResourceLink(
+                    topic=topic, url=url.strip(), description=description.strip()
                 )
+                self.db.add_resource_link(resource_link)
 
-        return response
+        return resources_content
 
     def evaluate_effort(self, content):
         prompt = f"Evaluate the effort put into the following student work: {content.student_work}. Rate the work on a scale of 1-5, where 1 is poor and 5 is excellent."
@@ -155,7 +176,6 @@ class LLMFeedback:
                 model=self.model,
             )
             self.db.log_llm_request(llm_request)
-
             return {"response": response.choices[0].message.content}
         except OpenAIError as e:
             logging.error(f"OpenAI error: {e}")
@@ -166,7 +186,7 @@ class LLMFeedback:
 
 
 if __name__ == "__main__":
-    api_key = os.getenv("AIML_API_KEY", "")
+    api_key = os.getenv("AIML_API_KEY", "54a34a43333f47119e47424176f69cf8")
     base_url = "https://api.aimlapi.com"
     model = "mistralai/Mistral-7B-Instruct-v0.2"
     system_prompt = "You are an AI assistant who knows everything about education and can provide feedback on student work."
@@ -176,7 +196,7 @@ if __name__ == "__main__":
     db = Database(db_path)
 
     # Initialize LLMFeedback with the database
-    llm_feedback = LLMFeedback(api_key, base_url, model, system_prompt, db_path)
+    llm_feedback = LLMFeedback(api_key, base_url, model, system_prompt, db)
 
     # Add a student
     student = Student(name="John Doe")
