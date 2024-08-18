@@ -1,51 +1,69 @@
-import asyncio
-import json
 import logging
 import os
-
 from openai import OpenAI, OpenAIError
+from database import Database, Feedback, LLMRequest, Student, StudentWork, ResourceLink, Assignment
 
 
 class LLMFeedback:
-
-    def __init__(self, api_key, base_url, model, system_prompt):
+    def __init__(self, api_key, base_url, model, system_prompt, db_path):
         self.api_key = api_key
         self.base_url = base_url
         self.model = model
         self.system_prompt = system_prompt
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-        self.saved_student_works = {}
+        self.db = Database(db_path)
 
         logger = logging.getLogger(__file__)
         log_format = "%(levelname)s:%(name)s:%(asctime)s - %(message)s"
         logging.basicConfig(level=logging.DEBUG, format=log_format)
 
     def get_feedback(self, content):
-        student_work = content['student_work']
-        assessment_type = content['assessment_type']
+        student_work = content.student_work
+        assessment_type = content.assessment_type
         prompt = f"Provide feedback on the following student work: {student_work}. The assessment type is {assessment_type}."
-        return self._make_request(prompt)
+        response = self._make_request(prompt)
+
+        if "response" in response:
+            feedback = Feedback(
+                work_id=content.work_id,
+                feedback_type="AI-generated",
+                content=response["response"],
+            )
+            self.db.add_feedback(feedback)
+
+        return response
 
     def validate_answer(self, content):
-        student_answer = content['student_answer']
-        correct_answer = content['correct_answer']
+        student_answer = content.student_work
+        correct_answer = content.correct_answer
         prompt = f"Compare the student's answer '{student_answer}' with the correct answer '{correct_answer}'. Is the student's answer correct?"
         return self._make_request(prompt)
 
-    def generate_suggested_enhancements(self, student_work):
-        prompt = f"Suggest enhancements for the following student work: {student_work}."
+    def generate_suggested_enhancements(self, content):
+        prompt = f"Suggest enhancements for the following student work: {content.student_work}."
         return self._make_request(prompt)
 
-    def provide_peer_comparison(self, student_work, peer_works):
-        prompt = f"Compare the following student work: {student_work} with the peer works: {peer_works}."
+    def provide_peer_comparison(self, content):
+        prompt = f"Compare the following student work: {content.student_work} with the peer works: {content.peer_works}."
         return self._make_request(prompt)
 
-    def generate_resource_links(self, topic):
-        prompt = f"Provide resource links for the topic: {topic}."
-        return self._make_request(prompt)
+    def generate_resource_links(self, content):
+        prompt = f"Provide resource links for the topic: {content.topic}."
+        response = self._make_request(prompt)
 
-    def evaluate_effort(self, student_work):
-        prompt = f"Evaluate the effort put into the following student work: {student_work}. Rate the work on a scale of 1-5, where 1 is poor and 5 is excellent."
+        if "response" in response:
+            # Assuming the response contains a list of resource links
+            links = response["response"].split("\n")
+            for link in links:
+                topic, url = link.split(": ")
+                self.db.add_resource_link(
+                    ResourceLink(topic=topic, url=url, description="")
+                )
+
+        return response
+
+    def evaluate_effort(self, content):
+        prompt = f"Evaluate the effort put into the following student work: {content.student_work}. Rate the work on a scale of 1-5, where 1 is poor and 5 is excellent."
         response = self._make_request(prompt)
 
         if response["response"] is None:
@@ -56,67 +74,45 @@ class LLMFeedback:
         except ValueError:
             return {"response": "Invalid rating received."}
 
-        if rating == 1:
-            feedback = "The student work is poor and lacks effort. It needs significant improvement."
-        elif rating == 2:
-            feedback = "The student work is below average and shows some effort. It needs improvement in several areas."
-        elif rating == 3:
-            feedback = "The student work is average and shows a decent amount of effort. It meets the expectations but can be improved."
-        elif rating == 4:
-            feedback = "The student work is good and shows a significant amount of effort. It exceeds the expectations in some areas."
-        else:
-            feedback = "The student work is excellent and shows an exceptional amount of effort. It far exceeds the expectations."
-        return {"response": feedback}
+        feedback_messages = {
+            1: "The student work is poor and lacks effort. It needs significant improvement.",
+            2: "The student work is below average and shows some effort. It needs improvement in several areas.",
+            3: "The student work is average and shows a decent amount of effort. It meets the expectations but can be improved.",
+            4: "The student work is good and shows a significant amount of effort. It exceeds the expectations in some areas.",
+            5: "The student work is excellent and shows an exceptional amount of effort. It far exceeds the expectations.",
+        }
 
-    def get_student_opinion(self, student_work):
-        prompt = f"What do you think about the following student work: {student_work}?"
-        return self._make_request(prompt)
+        feedback_content = feedback_messages.get(
+            rating, "Unable to determine feedback based on the rating."
+        )
 
-    def save_student_work(self, content):
-        student_work = content['student_work']
-        assessment_type = content['assessment_type']
-        self.saved_student_works[student_work] = assessment_type
-        return {"response": "Student work saved successfully!"}
+        feedback = Feedback(
+            work_id=content.work_id,
+            feedback_type="Effort Evaluation",
+            content=feedback_content,
+        )
+        self.db.add_feedback(feedback)
 
-    def load_student_work(self, content):
-        assessment_type = content['assessment_type']
-        student_works = [
-            work for work, type in self.saved_student_works.items()
-            if type == assessment_type
-        ]
-        return {"response": student_works}
-
-    def load_selected_student_work(self, content):
-        work_id = content['work_id']
-        student_work = self.saved_student_works.get(work_id)
-        if student_work:
-            return {"response": student_work}
-        else:
-            return {"error": "Student work not found"}
-
-    def enable_real_time_feedback(self):
-        return {"response": "Real-time feedback enabled"}
-
-    def disable_real_time_feedback(self):
-        return {"response": "Real-time feedback disabled"}
+        return {"response": feedback_content}
 
     def _make_request(self, prompt):
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": self.system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    },
+                    {"role": "system", "content": self.system_prompt},
+                    {"role": "user", "content": prompt},
                 ],
             )
             logging.info(f"Request prompt: {prompt}")
-            # logging.info(f"Response: {response}")
+
+            llm_request = LLMRequest(
+                prompt=prompt,
+                response=response.choices[0].message.content,
+                model=self.model,
+            )
+            self.db.log_llm_request(llm_request)
+
             return {"response": response.choices[0].message.content}
         except OpenAIError as e:
             logging.error(f"OpenAI error: {e}")
@@ -127,15 +123,48 @@ class LLMFeedback:
 
 
 if __name__ == "__main__":
-    api_key = os.getenv("AIML_API_KEY")
+    api_key = os.getenv("AIML_API_KEY", "")
     base_url = "https://api.aimlapi.com"
     model = "mistralai/Mistral-7B-Instruct-v0.2"
     system_prompt = "You are an AI assistant who knows everything about education and can provide feedback on student work."
-    llm_feedback = LLMFeedback(api_key, base_url, model, system_prompt)
-    content = {
-        "student_work":
-        "Out of suffering have emerged the strongest souls; the most massive characters are seared with scars.That is why they are able to empathize with others, to understand the depths of pain and the heights of triumph. Their scars serve as a reminder of the trials they have faced and the strength they have gained from overcoming them",
-        "assessment_type": "essay"
-    }
-    response = llm_feedback.get_feedback(content)
-    print(response)
+    db_path = "education_feedback.db"
+
+    # Initialize the Database
+    db = Database(db_path)
+
+    # Initialize LLMFeedback with the database
+    llm_feedback = LLMFeedback(api_key, base_url, model, system_prompt, db_path)
+
+    # Add a student
+    student = Student(name="John Doe")
+    student_id = db.add_student(student)
+
+    # Add an assignment
+    assessment_type_id = db.get_assessment_type_id("Essay")
+    if assessment_type_id:
+        assignment = Assignment(
+            title="Reflection on Suffering",
+            description="Write an essay reflecting on the role of suffering in personal growth.",
+            assessment_type_id=assessment_type_id,
+        )
+        assignment_id = db.add_assignment(assignment)
+    else:
+        print("No assessment type found.")
+
+    # Add student work
+    work = StudentWork(
+        student_id=student_id,
+        assignment_id=assignment_id,
+        content="Out of suffering have emerged the strongest souls...",
+    )
+    work_id = db.add_student_work(work)
+
+    # Get assessment content
+    assessment_content = db.get_assessment_content(work_id)
+
+    if assessment_content:
+        # Get feedback using LLMFeedback
+        response = llm_feedback.get_feedback(assessment_content)
+        print(response)
+    else:
+        print("No assessment content found.")
