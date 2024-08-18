@@ -1,7 +1,16 @@
 import logging
 import os
 from openai import OpenAI, OpenAIError
-from database import Database, Feedback, LLMRequest, Student, StudentWork, ResourceLink, Assignment
+from database import (
+    Database,
+    AssessmentContent,
+    Feedback,
+    LLMRequest,
+    Student,
+    StudentWork,
+    ResourceLink,
+    Assignment,
+)
 
 
 class LLMFeedback:
@@ -13,14 +22,15 @@ class LLMFeedback:
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.db = Database(db_path)
 
-        logger = logging.getLogger(__file__)
         log_format = "%(levelname)s:%(name)s:%(asctime)s - %(message)s"
+        logging.getLogger(__file__)
         logging.basicConfig(level=logging.DEBUG, format=log_format)
 
-    def get_feedback(self, content):
-        student_work = content.student_work
-        assessment_type = content.assessment_type
-        prompt = f"Provide feedback on the following student work: {student_work}. The assessment type is {assessment_type}."
+    def get_feedback(self, content: AssessmentContent):
+        if content.work_id is None:
+            return {"error": "Invalid AssessmentContent: work_id is required"}
+
+        prompt = self._generate_prompt(content)
         response = self._make_request(prompt)
 
         if "response" in response:
@@ -29,7 +39,13 @@ class LLMFeedback:
                 feedback_type="AI-generated",
                 content=response["response"],
             )
-            self.db.add_feedback(feedback)
+            feedback_id = self.db.add_feedback(feedback)
+
+            if feedback_id is None:
+                return {
+                    "error": "Failed to save feedback to database",
+                    "response": response["response"],
+                }
 
         return response
 
@@ -94,6 +110,33 @@ class LLMFeedback:
         self.db.add_feedback(feedback)
 
         return {"response": feedback_content}
+
+    def _generate_prompt(self, content: AssessmentContent, focus: str = "general"):
+        prompt = f"Provide detailed feedback on the following student work. Be constructive and specific in your comments.\n\nStudent work: {content.student_work}\nAssessment type: {content.assessment_type}"
+
+        if content.correct_answer:
+            prompt += f"\n\nCorrect answer: {content.correct_answer}\nCompare the student's work to the correct answer and highlight any discrepancies."
+
+        if content.peer_works:
+            prompt += f"\n\nPeer works: {content.peer_works}\nCompare the student's work to these peer examples, noting strengths and areas for improvement relative to peers."
+
+        if content.topic:
+            prompt += f"\n\nTopic: {content.topic}\nEnsure the feedback is relevant to this specific topic."
+
+        prompt += "\n\nBased on all this information, provide a comprehensive feedback that includes:\n1. Strengths of the work\n2. Areas for improvement\n3. Specific suggestions for enhancement\n4. An overall assessment of the work"
+
+        if focus == "grammar":
+            prompt += (
+                "\nPay special attention to grammar and language use in your feedback."
+            )
+        elif focus == "content":
+            prompt += (
+                "\nFocus primarily on the content and ideas presented in the work."
+            )
+        elif focus == "structure":
+            prompt += "\nPay particular attention to the structure and organization of the work in your feedback."
+
+        return prompt
 
     def _make_request(self, prompt):
         try:
