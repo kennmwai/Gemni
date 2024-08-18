@@ -190,7 +190,7 @@ if __name__ == "__main__":
     base_url = "https://api.aimlapi.com"
     model = "mistralai/Mistral-7B-Instruct-v0.2"
     system_prompt = "You are an AI assistant who knows everything about education and can provide feedback on student work."
-    db_path = "education_feedback.db"
+    db_path = "data/education_feedback.db"
 
     # Initialize the Database
     db = Database(db_path)

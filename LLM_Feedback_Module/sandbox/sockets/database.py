@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-DB_FILE = "data/llm_feedback.db"
+DB_FILE = "data/llm_fb.db"
 
 STUDENTS_TABLE = """
 CREATE TABLE IF NOT EXISTS Students (
@@ -444,7 +444,7 @@ class Database:
 
 
 if __name__ == "__main__":
-    db = Database("temp.db")
+    db = Database("data/temp.db")
 
     # Add a student
     student = Student(name="John Doe")
