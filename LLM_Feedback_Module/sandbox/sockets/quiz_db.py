@@ -32,8 +32,9 @@ ANSWERS_TABLE = """
 CREATE TABLE IF NOT EXISTS Answers (
     answer_id INTEGER PRIMARY KEY AUTOINCREMENT,
     question_id INTEGER,
-    selected_choice TEXT NOT NULL,
-    is_correct BOOLEAN NOT NULL,
+    selected_choice TEXT,
+    is_correct BOOLEAN,
+    open_ended_response TEXT,
     FOREIGN KEY (question_id) REFERENCES Questions(question_id)
 );
 """
@@ -59,8 +60,9 @@ class Question:
 @dataclass
 class Answer:
     question_id: int
-    selected_choice: str
-    is_correct: bool
+    selected_choice: Optional[str] = None
+    is_correct: Optional[bool] = None
+    open_ended_response: Optional[str] = None
     answer_id: Optional[int] = None
 
 
@@ -128,9 +130,10 @@ class QuizDB:
         """Add a new answer for a question."""
         with self._db_connection() as conn:
             cursor = conn.cursor()
-            sql = "INSERT INTO Answers (question_id, selected_choice, is_correct) VALUES (?, ?, ?)"
+            sql = """INSERT INTO Answers (question_id, selected_choice, is_correct, open_ended_response)
+                     VALUES (?, ?, ?, ?)"""
             cursor.execute(
-                sql, (answer.question_id, answer.selected_choice, answer.is_correct)
+                sql, (answer.question_id, answer.selected_choice, answer.is_correct, answer.open_ended_response)
             )
             conn.commit()
             return cursor.lastrowid
@@ -139,7 +142,7 @@ class QuizDB:
         """Retrieve a quiz by its ID."""
         with self._db_connection() as conn:
             cursor = conn.cursor()
-            sql = "SELECT * FROM Quizzes WHERE quiz_id = ?"
+            sql = """SELECT title, description, quiz_id FROM Quizzes WHERE quiz_id = ?"""
             cursor.execute(sql, (quiz_id,))
             result = cursor.fetchone()
             return Quiz(*result) if result else None
@@ -148,7 +151,8 @@ class QuizDB:
         """Retrieve all quizzes."""
         with self._db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM Quizzes")
+            sql = """SELECT title, description, quiz_id FROM Quizzes"""
+            cursor.execute(sql,)
             return [Quiz(*row) for row in cursor.fetchall()]
 
     def get_all_questions(self) -> List[Question]:
@@ -204,7 +208,11 @@ class QuizDB:
         """Retrieve all answers for a given question."""
         with self._db_connection() as conn:
             cursor = conn.cursor()
-            sql = "SELECT * FROM Answers WHERE question_id = ?"
+            # Select columns in the order expected by the Answer class
+            sql = """
+            SELECT question_id, selected_choice, is_correct, open_ended_response, answer_id
+            FROM Answers WHERE question_id = ?
+            """
             cursor.execute(sql, (question_id,))
             return [Answer(*row) for row in cursor.fetchall()]
 
@@ -213,16 +221,27 @@ class QuizDB:
         Get statistics for a quiz.
         Returns: (total_questions, total_answers, correct_percentage)
         """
+        total_questions = self.get_total_questions(quiz_id)
+        total_answers, correct_answers = self.get_total_answers_and_correct_answers(quiz_id)
+
+        correct_percentage = (
+            (correct_answers / total_answers * 100) if total_answers > 0 else 0
+        )
+
+        return total_questions, total_answers, correct_percentage
+
+
+    def get_total_questions(self, quiz_id: int) -> int:
+        """Get the total number of questions for a given quiz."""
         with self._db_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM Questions WHERE quiz_id = ?", (quiz_id,))
+            return cursor.fetchone()[0]
 
-            # Get total questions
-            cursor.execute(
-                "SELECT COUNT(*) FROM Questions WHERE quiz_id = ?", (quiz_id,)
-            )
-            total_questions = cursor.fetchone()[0]
-
-            # Get total answers and correct answers
+    def get_total_answers_and_correct_answers(self, quiz_id: int) -> Tuple[int, int]:
+        """Get the total number of answers and correct answers for a given quiz."""
+        with self._db_connection() as conn:
+            cursor = conn.cursor()
             cursor.execute(
                 """
                 SELECT COUNT(*), SUM(CASE WHEN is_correct THEN 1 ELSE 0 END)
@@ -233,12 +252,7 @@ class QuizDB:
                 (quiz_id,),
             )
             total_answers, correct_answers = cursor.fetchone()
-
-            correct_percentage = (
-                (correct_answers / total_answers * 100) if total_answers > 0 else 0
-            )
-
-            return total_questions, total_answers, correct_percentage
+            return total_answers, correct_answers
 
     def record_answer(self, answer: Answer) -> Optional[int]:
         """Save the quiz results to the database."""
@@ -289,6 +303,14 @@ if __name__ == "__main__":
     quiz = Quiz(title="General Knowledge Quiz", description="A simple GK quiz")
     quiz_id = db.add_quiz(quiz)
     print(f"Quiz ID: {quiz_id}")
+    print("")
+
+    # Fetch and print all quizzes
+    qz = db.get_quiz_by_id(quiz_id)
+    print("Fetched Quiz:\n", qz)
+    quizzes = db.get_all_quizzes()
+    print("All Quizzes:\n", quizzes)
+    print("")
 
     # Add questions
     question_1 = Question(
@@ -341,45 +363,68 @@ if __name__ == "__main__":
     question_5 = Question(
         quiz_id=quiz_id,
         question_text="Describe the process of quantum teleportation.",
-        correct_answer="Quantum Teleportation",
+        correct_answer="Quantum Teleportation .... ",
         choices=[],  # No choices for open-ended questions
         is_open_ended=True
     )
     question_id_5 = db.add_question(question_5)
-    print(f"Question ID 2: {question_id_5}")
+    print(f"Question ID 5: {question_id_5}")
+    print("")
 
-    # Add answers
+    # Record a multiple-choice answer
     answer_1 = Answer(
         question_id=question_id_1, selected_choice="Paris", is_correct=True
     )
+    answer_2 = Answer(question_id=question_id_2, selected_choice="4", is_correct=True)
     answer_id_1 = db.add_answer(answer_1)
-    print(f"Answer ID 1: {answer_id_1}")
+    answer_id_2 = db.record_answer(answer_2)
 
-    # Fetch and print all quizzes
-    quizzes = db.get_all_quizzes()
-    print("All Quizzes:", quizzes)
+    print(f"Answer ID 1: {answer_id_1}")
+    print(f"Answer ID 2: {answer_id_2}")
+
+    # Record an open-ended answer
+    answer_5 = Answer(
+        question_id=question_id_5,
+        open_ended_response="Quantum teleportation involves transferring the state of a qubit using classical bits.",
+        is_correct=None  # None Or set to True/False if manually graded
+    )
+
+    answer_id_5 = db.add_answer(answer_5)
+    print(f"Answer ID 5: {answer_id_5}")
+    print("Answer 5", answer_5)
+    print("")
 
     # Fetch and print questions and options for a quiz
     questions = db.get_questions_by_quiz_id(quiz_id)
     for question in questions:
         print(f"Question: {question.question_text}")
         print(f"Choices: {', '.join(question.choices)}")
-        print(f"Correct Answer: {question.correct_answer}")
-
-    # Record an answer
-    answer_2 = Answer(question_id=question_id_2, selected_choice="4", is_correct=True)
-    answer_id_2 = db.record_answer(answer_2)
-    print(f"Answer ID 2: {answer_id_2}")
+        print(f"Correct Answer: {question.correct_answer}\n")
+    print("")
 
     # Get a question by ID
     question = db.get_question_by_id(question_id_1)
     print(f"Retrieved question: {question}")
+    print("")
+
+    # Fetch and print answers for the second question
+    anss_2 = db.get_answers_by_question_id(question_id_2)
+    print("ANS 2: ", anss_2)
+    for ans in anss_2:
+        print(f"Selected Choice: {ans.selected_choice}, Correct: {ans.is_correct}")
+
+    ans_5 = db.get_answers_by_question_id(question_id_5)
+    print("ANS 5: ", ans_5)
+    for ans in ans_5:
+        print(f"Open-Ended Response: {ans.open_ended_response}")
+    print("")
 
     # Get quiz statistics
     stats = db.get_quiz_statistics(quiz_id)
     print(
         f"Quiz statistics: Total questions: {stats[0]}, Total answers: {stats[1]}, Correct percentage: {stats[2]:.2f}%"
     )
+    print("")
 
     # Update a quiz
     updated_quiz = Quiz(
@@ -388,8 +433,8 @@ if __name__ == "__main__":
         description="An updated GK quiz",
     )
     if db.update_quiz(updated_quiz):
-        print("Quiz updated successfully")
+        print("Quiz updated successfully\n")
 
     # Delete a quiz
     # if db.delete_quiz(quiz_id):
-    #     print("Quiz deleted successfully")
+    #     print("Quiz deleted successfully\n")
