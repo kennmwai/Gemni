@@ -1,3 +1,5 @@
+import socket
+import json
 import random
 import logging
 import time
@@ -17,6 +19,35 @@ class QuizApp:
         self.current_quiz: Optional[Quiz] = None
         self.time_limit: Optional[int] = None
         self.start_time: Optional[float] = None
+        self.server_host = 'localhost'
+        self.server_port = 8765
+        self._connect_to_server()
+
+    def _connect_to_server(self):
+        try:
+            self.socket_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket_client.connect((self.server_host, self.server_port))
+            logging.info(f"Connected to server at {self.server_host}:{self.server_port}")
+        except Exception as e:
+            logging.error(f"Failed to connect to server: {e}")
+
+    def _send_message(self, action, content):
+        if self.socket_client:
+            message = json.dumps({'action': action, 'content': content})
+            self.socket_client.send(message.encode('utf-8'))
+        else:
+            logging.error("No connection to server.")
+
+    def _receive_message(self):
+        if self.socket_client:
+            try:
+                data = self.socket_client.recv(1024).decode('utf-8')
+                if data:
+                    message = json.loads(data)
+                    return message
+            except Exception as e:
+                logging.error(f"Error receiving message: {e}")
+        return None
 
     def load_questions(self, quiz_id: int) -> None:
         """Load questions for a specific quiz from the database."""

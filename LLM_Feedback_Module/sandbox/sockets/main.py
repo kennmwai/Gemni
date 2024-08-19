@@ -52,9 +52,13 @@ async def main():
         server.start()
     except KeyboardInterrupt:
         logging.error("Exiting...")
+        server.stop()
+        # db.close()  # Close the database connection
         exit(0)
     except Exception as e:
         logging.error(f"Error starting server: {e}")
+        server.stop()
+        # db.close()
 
 
 if __name__ == "__main__":

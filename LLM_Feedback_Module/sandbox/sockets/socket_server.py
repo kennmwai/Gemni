@@ -2,10 +2,8 @@ import concurrent.futures
 import json
 import logging
 import socket
-import selectors
-import threading
+import sys
 from typing import Callable
-
 
 class SocketServer:
 
@@ -15,34 +13,32 @@ class SocketServer:
         self.server_socket = None
         self.clients = []
         self.handlers = {}
-        self.sel = selectors.DefaultSelector()
+        self.executor = concurrent.futures.ThreadPoolExecutor()
+        self.running = True
 
         logger = logging.getLogger(__file__)
         log_format = "%(levelname)s:%(name)s:%(asctime)s - %(message)s"
         logging.basicConfig(level=logging.DEBUG, format=log_format)
 
     def start(self):
-        self.server_socket = socket.socket(socket.AF_INET,
-                                           socket.SOCK_STREAM)
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
         self.server_socket.settimeout(1.0)
         logging.info(f"Server listening on {self.host}:{self.port}")
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            while True:
+        try:
+            while self.running:
                 try:
                     client_socket, addr = self.server_socket.accept()
                     logging.info(f"Accepted connection from {addr}")
-                    executor.submit(self.handle_client, client_socket,
-                                    addr)
-                except KeyboardInterrupt:
-                    logging.info("Server stopped by user")
-                    break
+                    self.executor.submit(self.handle_client, client_socket, addr)
                 except socket.timeout:
                     continue
                 except Exception as e:
-                    logging.error(f"Error starting server: {e}")
+                    logging.error(f"Error in server loop: {e}")
+        finally:
+            self.stop()
 
     def handle_client(self, client_socket, addr):
         self.clients.append(client_socket)
@@ -79,7 +75,10 @@ class SocketServer:
 
     def send_response(self, client_socket, action, response):
         message = self.create_message(action, response)
-        client_socket.send(message.encode('utf-8'))
+        try:
+            client_socket.send(message.encode('utf-8'))
+        except socket.error as e:
+            logging.error(f"Error sending response to client: {e}")
 
     def register_handler(self, action: str, handler: Callable) -> None:
         if not isinstance(action, str):
@@ -110,11 +109,22 @@ class SocketServer:
         client_socket.close()
         logging.info(f"Client {addr} disconnected")
 
+    def stop(self):
+        self.running = False
+        if self.server_socket:
+            self.server_socket.close()
+        self.executor.shutdown(wait=True)
+        logging.info("Server stopped")
 
 if __name__ == "__main__":
     server = SocketServer()
     try:
         server.start()
     except KeyboardInterrupt:
-        print("Exiting...")
-        exit(0)
+        logging.info("Exiting due to keyboard interrupt")
+        server.stop()
+        sys.exit(0)
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        server.stop()
+        sys.exit(1)
