@@ -92,7 +92,8 @@ class QuizGUI:
     def finish_quiz(self):
         """Handles the end of the quiz."""
         self.quiz_app.save_quiz_results()
-        correct, total = self.quiz_app.calculate_score()
+        correct, incorrect, unanswered = self.quiz_app.calculate_score()
+        total = correct + incorrect + unanswered
         messagebox.showinfo("Quiz Finished", f"Your score: {correct}/{total}")
 
     def show_statistics(self):

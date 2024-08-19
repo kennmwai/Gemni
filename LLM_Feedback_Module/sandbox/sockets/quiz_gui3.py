@@ -77,6 +77,7 @@ class QuizGUI:
 
         # Initially hide the next and submit buttons
         self.hide_quiz_buttons()
+        self.show_existing_quizzes()
 
         self.start_button = ttk.Button(
             self.main_frame, text="Start Quiz", command=self.start_quiz
@@ -91,15 +92,28 @@ class QuizGUI:
         style.configure("TButton", font=("Arial", 11))
 
     def hide_quiz_buttons(self):
+        # self.choices_frame.pack_forget()
+        self.text_answer.pack_forget()
         self.next_button.pack_forget()
         self.submit_button.pack_forget()
+
+    def show_existing_quizzes(self):
+        self.selected_choice.set(None)
+        self.choices_frame.pack(fill=tk.BOTH, expand=True)
+        choices = self.quiz_app.get_all_quizzes()
+        for rb, choice in zip(self.radio_buttons, choices):
+            rb.config(text=choice.title, value=choice.quiz_id)
 
     def show_quiz_buttons(self):
         self.submit_button.pack(side=tk.LEFT)
         self.next_button.pack(side=tk.RIGHT)
 
     def start_quiz(self):
-        quiz_id = simpledialog.askinteger("Start Quiz", "Enter the Quiz ID:")
+        self.remaining_time = self.total_time
+        quiz_id = self.selected_choice.get()
+        if not quiz_id:
+            quiz_id = simpledialog.askinteger("Start Quiz", "Enter the Quiz ID:")
+
         if quiz_id:
             try:
                 self.quiz_app.start_quiz(quiz_id)
@@ -120,16 +134,15 @@ class QuizGUI:
                 f"Question No.{self.quiz_app.current_question_index} of {len(self.quiz_app.questions)}"
             )
             self.question_label.config(text=self.current_question.question_text)
-            if (
-                isinstance(self.current_question, Question)
-                and self.current_question.is_open_ended
-            ):
+            if self.current_question.is_open_ended:
                 # Clear previous selection and show the text widget
                 self.selected_choice.set(None)
+                self.text_answer.delete("1.0", tk.END)
                 self.text_answer.pack(pady=10, fill=tk.BOTH, expand=True)
                 self.choices_frame.pack_forget()
             else:
                 # Clear previous text and show the radio buttons
+                self.selected_choice.set(None)
                 self.text_answer.pack_forget()
                 self.choices_frame.pack(fill=tk.BOTH, expand=True)
                 choices = self.current_question.choices
@@ -186,7 +199,8 @@ class QuizGUI:
 
     def finish_quiz(self):
         self.quiz_app.save_quiz_results()
-        correct, total = self.quiz_app.calculate_score()
+        correct, incorrect, unanswered = self.quiz_app.calculate_score()
+        total = correct + incorrect + unanswered
         messagebox.showinfo("Quiz Finished", f"Your score: {correct}/{total}")
         self.root.quit()
 
