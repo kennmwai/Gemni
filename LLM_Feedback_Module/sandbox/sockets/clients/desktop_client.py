@@ -6,7 +6,6 @@ from tkinter import scrolledtext, simpledialog, ttk
 
 
 class LLMFeedbackClient:
-
     def __init__(self, master):
         self.master = master
         master.title("LLM Feedback Client")
@@ -14,7 +13,6 @@ class LLMFeedbackClient:
 
         self.socket = None
         self.connected = False
-        self.reconnect_attempt = 0
 
         self.create_widgets()
         self.connect_to_server()
@@ -29,20 +27,24 @@ class LLMFeedbackClient:
         ttk.Label(self.master, text="Select action:").pack(pady=5)
         self.action_var = tk.StringVar()
         actions = [
-            "get_feedback", "validate_answer", "suggest_enhancements",
-            "peer_comparison", "resource_links", "evaluate_effort",
-            "student_opinion"
+            "get_feedback",
+            "validate_answer",
+            "suggest_enhancements",
+            "peer_comparison",
+            "resource_links",
+            "evaluate_effort",
+            "student_opinion",
         ]
-        self.action_dropdown = ttk.Combobox(self.master,
-                                            textvariable=self.action_var,
-                                            values=actions)
+        self.action_dropdown = ttk.Combobox(
+            self.master, textvariable=self.action_var, values=actions
+        )
         self.action_dropdown.set(actions[0])
         self.action_dropdown.pack(pady=5)
 
         # Submit button
-        self.submit_button = ttk.Button(self.master,
-                                        text="Submit",
-                                        command=self.send_message)
+        self.submit_button = ttk.Button(
+            self.master, text="Submit", command=self.send_message
+        )
         self.submit_button.pack(pady=10)
 
         # Output area
@@ -53,15 +55,13 @@ class LLMFeedbackClient:
         # Connection status
         self.status_var = tk.StringVar()
         self.status_var.set("Not connected")
-        self.status_label = ttk.Label(self.master,
-                                      textvariable=self.status_var)
+        self.status_label = ttk.Label(self.master, textvariable=self.status_var)
         self.status_label.pack(pady=5)
 
-        # Reconnect button to be shown only if status is Not connected
-        self.reconnect_button = ttk.Button(self.master,
-                                           text="Reconnect",
-                                           command=self.reconnect_to_server)
-        self.reconnect_button.pack(pady=10)
+        # Reconnect button
+        self.reconnect_button = ttk.Button(
+            self.master, text="Reconnect", command=self.reconnect_to_server
+        )
         self.update_reconnect_button()
 
     def update_reconnect_button(self):
@@ -74,21 +74,14 @@ class LLMFeedbackClient:
     def connect_to_server(self):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect(('localhost', 8765))
+            self.socket.connect(("localhost", 8765))
             self.connected = True
             self.status_var.set("Connected to server")
             threading.Thread(target=self.receive_messages, daemon=True).start()
         except Exception as e:
             self.status_var.set(f"Connection failed: {str(e)}")
-            self.reconnect_attempt += 1
-            if self.reconnect_attempt < 5:
-                self.master.after(1000, self.connect_to_server)
-            else:
-                self.status_var.set(
-                    "Failed to connect to server. Please try again later.")
 
     def reconnect_to_server(self):
-        self.reconnect_attempt = 0
         self.connect_to_server()
 
     def send_message(self):
@@ -101,40 +94,36 @@ class LLMFeedbackClient:
 
         message = {
             "action": action,
-            "content": {
-                "student_work": student_work,
-                "assessment_type": "essay"
-            }
+            "content": {"student_work": student_work, "assessment_type": "essay"},
         }
 
         if action == "validate_answer":
             correct_answer = simpledialog.askstring(
-                "Input", "Enter the correct answer:")
+                "Input", "Enter the correct answer:"
+            )
             message["content"]["student_answer"] = student_work
             message["content"]["correct_answer"] = correct_answer
 
         try:
-            if self.socket:
-                self.socket.send(json.dumps(message).encode('utf-8'))
-                self.output.insert(tk.END, f"Sent request: {action}\n")
+            self.socket.send(json.dumps(message).encode("utf-8"))
+            self.output.insert(tk.END, f"Sent request: {action}\n")
         except Exception as e:
             self.output.insert(tk.END, f"Error sending message: {str(e)}\n")
 
     def receive_messages(self):
-        while self.connected and self.socket is not None:
+        while self.connected:
             try:
-                data = self.socket.recv(1024).decode('utf-8')
+                data = self.socket.recv(1024).decode("utf-8")
                 if not data:
                     break
                 response = json.loads(data)
                 self.output.insert(
                     tk.END,
-                    f"Received {response['action']}:\n{response['response']}\n\n"
+                    f"Received {response['action']}:\n{response['response']}\n\n",
                 )
                 self.output.see(tk.END)
             except Exception as e:
-                self.output.insert(tk.END,
-                                   f"Error receiving message: {str(e)}\n")
+                self.output.insert(tk.END, f"Error receiving message: {str(e)}\n")
                 break
 
         self.connected = False
