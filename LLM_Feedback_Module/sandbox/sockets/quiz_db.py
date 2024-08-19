@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS Questions (
     question_text TEXT NOT NULL,
     correct_answer TEXT NOT NULL,
     choices TEXT NOT NULL,
+    is_open_ended BOOLEAN NOT NULL DEFAULT 0,
     FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id)
 );
 """
@@ -107,8 +108,8 @@ class QuizDB:
         with self._db_connection() as conn:
             cursor = conn.cursor()
             sql = """INSERT INTO Questions
-                     (quiz_id, question_text, correct_answer, choices)
-                     VALUES (?, ?, ?, ?)"""
+                     (quiz_id, question_text, correct_answer, choices, is_open_ended)
+                     VALUES (?, ?, ?, ?, ?)"""
             choices_json = json.dumps(question.choices)
             cursor.execute(
                 sql,
@@ -117,6 +118,7 @@ class QuizDB:
                     question.question_text,
                     question.correct_answer,
                     choices_json,
+                    question.is_open_ended,
                 ),
             )
             conn.commit()
@@ -157,14 +159,29 @@ class QuizDB:
             cursor.execute(sql)
             questions = []
             for row in cursor.fetchall():
-                question_id, quiz_id, question_text, correct_answer, choices_json = row
+                question_id, quiz_id, question_text, correct_answer, choices_json, is_open_ended = row
                 choices = json.loads(choices_json)
                 questions.append(
                     Question(
-                        quiz_id, question_text, correct_answer, choices, question_id
+                        quiz_id, question_text, correct_answer, choices, is_open_ended, question_id
                     )
                 )
             return questions
+
+    def get_question_by_id(self, question_id: int) -> Optional[Question]:
+        """Retrieve a question by its ID."""
+        with self._db_connection() as conn:
+            cursor = conn.cursor()
+            sql = "SELECT * FROM Questions WHERE question_id = ?"
+            cursor.execute(sql, (question_id,))
+            result = cursor.fetchone()
+            if result:
+                question_id, quiz_id, question_text, correct_answer, choices_json, is_open_ended = result
+                choices = json.loads(choices_json)
+                return Question(
+                    quiz_id, question_text, correct_answer, choices, is_open_ended, question_id
+                )
+            return None
 
     def get_questions_by_quiz_id(self, quiz_id: int) -> List[Question]:
         """Retrieve all questions for a given quiz."""
@@ -174,11 +191,11 @@ class QuizDB:
             cursor.execute(sql, (quiz_id,))
             questions = []
             for row in cursor.fetchall():
-                question_id, quiz_id, question_text, correct_answer, choices_json = row
+                question_id, quiz_id, question_text, correct_answer, choices_json, is_open_ended = row
                 choices = json.loads(choices_json)
                 questions.append(
                     Question(
-                        quiz_id, question_text, correct_answer, choices, question_id
+                        quiz_id, question_text, correct_answer, choices, is_open_ended, question_id
                     )
                 )
             return questions
@@ -190,23 +207,6 @@ class QuizDB:
             sql = "SELECT * FROM Answers WHERE question_id = ?"
             cursor.execute(sql, (question_id,))
             return [Answer(*row) for row in cursor.fetchall()]
-
-    def get_question_by_id(self, question_id: int) -> Optional[Question]:
-        """Retrieve a question by its ID."""
-        with self._db_connection() as conn:
-            cursor = conn.cursor()
-            sql = "SELECT * FROM Questions WHERE question_id = ?"
-            cursor.execute(sql, (question_id,))
-            result = cursor.fetchone()
-            if result:
-                question_id, quiz_id, question_text, correct_answer, choices_json = (
-                    result
-                )
-                choices = json.loads(choices_json)
-                return Question(
-                    quiz_id, question_text, correct_answer, choices, question_id
-                )
-            return None
 
     def get_quiz_statistics(self, quiz_id: int) -> Tuple[int, int, float]:
         """
@@ -336,6 +336,17 @@ if __name__ == "__main__":
     )
     question_id_4 = db.add_question(question_4)
     print(f"Question ID 4: {question_id_4}")
+
+    # Add open-ended question
+    question_5 = Question(
+        quiz_id=quiz_id,
+        question_text="Describe the process of quantum teleportation.",
+        correct_answer="Quantum Teleportation",
+        choices=[],  # No choices for open-ended questions
+        is_open_ended=True
+    )
+    question_id_5 = db.add_question(question_5)
+    print(f"Question ID 2: {question_id_5}")
 
     # Add answers
     answer_1 = Answer(

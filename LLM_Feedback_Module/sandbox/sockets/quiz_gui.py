@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
-from quiz_app import QuizApp, Question, Quiz
+from quiz_app import QuizApp
 
 
 class QuizGUI:

@@ -1,7 +1,5 @@
-import json
 import random
 import logging
-from dataclasses import dataclass
 from typing import List, Optional, Tuple
 from quiz_db import QuizDB, Quiz, Question, Answer
 
