@@ -1,10 +1,12 @@
 import logging
 import sqlite3
+from pathlib import Path
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
-DB_FILE = "data/llm_fb.db"
+DB_FILE = "llm_fb.db"
+DB_PATH = Path("data") / DB_FILE
 
 STUDENTS_TABLE = """
 CREATE TABLE IF NOT EXISTS Students (
@@ -140,11 +142,19 @@ class AssessmentContent:
 
 
 class Database:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[Union[str, Path]] = None):
+        self.db_path = Path(db_path) if db_path else DB_PATH
+        self._create_db_path()
         self._init_db()
         self._init_assessment_types()
         logging.basicConfig(level=logging.INFO)
+
+    def _create_db_path(self):
+        """Create the directory for the database file if it doesn't exist.
+        """
+        logging.debug(f"Creating database path: {self.db_path}")
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        logging.info(f"Database path created: {self.db_path}")
 
     @contextmanager
     def _db_connection(self, db_file):
@@ -155,7 +165,7 @@ class Database:
         finally:
             conn.close()
 
-    def _create_table(self, conn, table_sql):
+    def _create_table(self, conn: sqlite3.Connection, table_sql: str) -> None:
         """Create a table from the create_table_sql statement."""
         try:
             c = conn.cursor()

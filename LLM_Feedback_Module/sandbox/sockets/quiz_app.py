@@ -23,7 +23,7 @@ class QuizApp:
         self.server_port = 8765
         self._connect_to_server()
 
-    def _connect_to_server(self):
+    def _connect_to_server(self) -> None:
         try:
             self.socket_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket_client.connect((self.server_host, self.server_port))
@@ -66,6 +66,7 @@ class QuizApp:
         self.answers.clear()
         self.time_limit = time_limit
         self.start_time = time.time()
+        self._send_message('start_quiz', {'quiz_id': quiz_id})
 
     def get_next_question(self) -> Optional[Question]:
         """Get the next question."""

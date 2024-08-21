@@ -1,11 +1,13 @@
 import logging
 import sqlite3
 import json
+from pathlib import Path
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 DB_FILE = "quiz.db"
+DB_PATH = Path("database") / DB_FILE
 
 # Updated table creation SQL
 QUIZZES_TABLE = """
@@ -67,8 +69,9 @@ class Answer:
 
 
 class QuizDB:
-    def __init__(self, db_path: str = DB_FILE):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[Union[str, Path]] = None):
+        self.db_path = Path(db_path) if db_path else DB_PATH
+        self._create_db_path()
         self._init_db()
         logging.basicConfig(level=logging.INFO)
 
@@ -80,6 +83,13 @@ class QuizDB:
             yield conn
         finally:
             conn.close()
+
+    def _create_db_path(self):
+        """Create the directory for the database file if it doesn't exist.
+        """
+        logging.debug(f"Creating database path: {self.db_path}")
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        logging.info(f"Database path created: {self.db_path}")
 
     def _create_table(self, conn, table_sql):
         """Create a table from the create_table_sql statement."""
@@ -98,6 +108,9 @@ class QuizDB:
 
     def add_quiz(self, quiz: Quiz) -> Optional[int]:
         """Add a new quiz."""
+        if not quiz.title:
+            raise ValueError("Quiz title cannot be empty")
+
         with self._db_connection() as conn:
             cursor = conn.cursor()
             sql = "INSERT INTO Quizzes (title, description) VALUES (?, ?)"
@@ -224,9 +237,10 @@ class QuizDB:
         total_questions = self.get_total_questions(quiz_id)
         total_answers, correct_answers = self.get_total_answers_and_correct_answers(quiz_id)
 
-        correct_percentage = (
-            (correct_answers / total_answers * 100) if total_answers > 0 else 0
-        )
+        if total_answers == 0:
+            correct_percentage = 0
+        else:
+            correct_percentage = (correct_answers / total_answers) * 100
 
         return total_questions, total_answers, correct_percentage
 
@@ -297,7 +311,7 @@ class QuizDB:
 
 if __name__ == "__main__":
     # Example usage
-    db = QuizDB(DB_FILE)
+    db = QuizDB("data/foo.db")
 
     # Add a quiz
     quiz = Quiz(title="General Knowledge Quiz", description="A simple GK quiz")
