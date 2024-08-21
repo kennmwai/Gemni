@@ -3,14 +3,16 @@ from utils.config import get_api_key
 
 
 class TextToSpeech:
+
     def __init__(self):
         self.api_key = get_api_key()
         self.api = TextToSpeechAPI(self.api_key)
 
-    def convert_text_to_audio(
-        self, text, model="#g1_aura-asteria-en", output_path="output_audio.wav"
-    ):
-        audio_content = self.api.convert_text_to_audio(text)
+    def convert_text_to_audio(self,
+                              text,
+                              model="#g1_aura-asteria-en",
+                              output_path="output_audio.wav"):
+        audio_content = self.api.convert_text_to_audio(text, model)
         with open(output_path, "wb") as file:
             file.write(audio_content)
         return output_path

@@ -11,9 +11,9 @@ class ImageInference:
         self,
         prompt,
         model="stabilityai/stable-diffusion-2-1",
-        output_path="./generated_image.png",
+        output_path="./image.png",
     ):
-        image_data = self.api.generate_image(prompt)
+        image_data = self.api.generate_image(prompt, model)
         with open(output_path, "wb") as file:
             file.write(image_data)
         return output_path
