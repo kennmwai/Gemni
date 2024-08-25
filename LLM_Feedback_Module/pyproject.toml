@@ -25,6 +25,12 @@ build-backend = "hatchling.build"
 managed = true
 dev-dependencies = []
 
+[tool.rye.scripts]
+server = { cmd = "python server" }
+client1 = { cmd = ["python", "-mhttp.server", "9000", "-dclients/01-web_static"] }
+client4 = { cmd = "python clients/04-quiz_tk" }
+
+
 [tool.hatch.metadata]
 allow-direct-references = true
 
