@@ -4,10 +4,11 @@ import logging
 import socket
 import sys
 from typing import Callable
+from llm_feedback import AssessmentContent
+
 
 class SocketServer:
-
-    def __init__(self, host='localhost', port=8765):
+    def __init__(self, host="localhost", port=8765):
         self.host = host
         self.port = port
         self.server_socket = None
@@ -44,7 +45,7 @@ class SocketServer:
         self.clients.append(client_socket)
         try:
             while True:
-                data = client_socket.recv(1024).decode('utf-8')
+                data = client_socket.recv(1024).decode("utf-8")
                 logging.debug(f"Received data from {addr}: {data}")
                 if not data:
                     break
@@ -59,26 +60,36 @@ class SocketServer:
     def process_message(self, client_socket, data):
         try:
             message = json.loads(data)
-            action = message['action']
-            content = message['content']
+            action = message["action"]
+            content = message["content"]
+
+            assessment_content = AssessmentContent(**content)
 
             if action in self.handlers:
-                response = self.handlers[action](content)
-                self.send_response(client_socket, action, response)
+                response = self.handlers[action](assessment_content)
             else:
-                self.send_response(client_socket, 'error', 'Invalid action')
+                response = {"error": "Invalid action"}
+
+            self.send_response(client_socket, action, response)
         except json.JSONDecodeError:
-            self.send_response(client_socket, 'error', 'Invalid JSON')
+            self.send_response(client_socket, "error", "Invalid JSON")
+        except Exception as e:
+            logging.error(f"Error processing message: {e}")
+            self.send_response(client_socket, "error", str(e))
 
     def create_message(self, action, response):
-        return json.dumps({'action': action, 'response': response})
+        return json.dumps({"action": action, "response": response})
 
     def send_response(self, client_socket, action, response):
-        message = self.create_message(action, response)
         try:
+            message = json.dumps({
+                'action': action,
+                'response': str(response)
+            }, ensure_ascii=False)
             client_socket.send(message.encode('utf-8'))
-        except socket.error as e:
+        except Exception as e:
             logging.error(f"Error sending response to client: {e}")
+
 
     def register_handler(self, action: str, handler: Callable) -> None:
         if not isinstance(action, str):
@@ -99,7 +110,7 @@ class SocketServer:
             clients = self.clients
         for client in clients:
             try:
-                client.send(message.encode('utf-8'))
+                client.send(message.encode("utf-8"))
             except Exception as e:
                 logging.error(f"Error broadcasting to client: {e}")
                 self.clients.remove(client)
@@ -115,6 +126,7 @@ class SocketServer:
             self.server_socket.close()
         self.executor.shutdown(wait=True)
         logging.info("Server stopped")
+
 
 if __name__ == "__main__":
     server = SocketServer()

@@ -3,7 +3,18 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import scrolledtext, simpledialog, ttk
+from dataclasses import dataclass
+from typing import Optional
 
+
+@dataclass
+class AssessmentContent:
+    student_work: str
+    assessment_type: str
+    correct_answer: Optional[str] = None
+    peer_works: Optional[str] = None
+    topic: Optional[str] = None
+    work_id: Optional[int] = None
 
 class LLMFeedbackClient:
     def __init__(self, master):
@@ -29,7 +40,6 @@ class LLMFeedbackClient:
         actions = [
             "get_feedback",
             "validate_answer",
-            "suggest_enhancements",
             "peer_comparison",
             "resource_links",
             "evaluate_effort",
@@ -92,17 +102,28 @@ class LLMFeedbackClient:
         action = self.action_var.get()
         student_work = self.student_work.get("1.0", tk.END).strip()
 
-        message = {
-            "action": action,
-            "content": {"student_work": student_work, "assessment_type": "essay"},
-        }
+        assessment_content = AssessmentContent(
+            student_work=student_work,
+            assessment_type="essay",
+            work_id=1 # Will implement a way to get or generate this
+        )
 
         if action == "validate_answer":
-            correct_answer = simpledialog.askstring(
-                "Input", "Enter the correct answer:"
-            )
-            message["content"]["student_answer"] = student_work
-            message["content"]["correct_answer"] = correct_answer
+            correct_answer = simpledialog.askstring("Input", "Enter the correct answer:")
+            assessment_content.correct_answer = correct_answer
+
+        if action == "peer_comparison":
+            peer_works = simpledialog.askstring("Input", "Enter peer works (comma-separated):")
+            assessment_content.peer_works = peer_works
+
+        if action == "resource_links":
+            topic = simpledialog.askstring("Input", "Enter the topic:")
+            assessment_content.topic = topic
+
+        message = {
+            "action": action,
+            "content": assessment_content.__dict__
+        }
 
         try:
             self.socket.send(json.dumps(message).encode("utf-8"))
@@ -113,15 +134,29 @@ class LLMFeedbackClient:
     def receive_messages(self):
         while self.connected:
             try:
-                data = self.socket.recv(1024).decode("utf-8")
+                data = b""
+                while True:
+                    chunk = self.socket.recv(4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                    try:
+                        response = json.loads(data.decode('utf-8'))
+                        break
+                    except json.JSONDecodeError:
+                        continue  # Keep receiving data if it's not complete JSON yet
+
                 if not data:
                     break
-                response = json.loads(data)
-                self.output.insert(
-                    tk.END,
-                    f"Received {response['action']}:\n{response['response']}\n\n",
-                )
-                self.output.see(tk.END)
+
+                if 'action' in response and 'response' in response:
+                    self.output.insert(
+                        tk.END,
+                        f"Received {response['action']}:\n{response['response']}\n\n",
+                    )
+                    self.output.see(tk.END)
+                else:
+                    self.output.insert(tk.END, f"Received unexpected response format: {response}\n\n")
             except Exception as e:
                 self.output.insert(tk.END, f"Error receiving message: {str(e)}\n")
                 break
