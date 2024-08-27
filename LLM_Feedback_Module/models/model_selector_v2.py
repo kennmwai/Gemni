@@ -2,6 +2,7 @@ import json
 import random
 import os
 import requests
+from typing import List, Optional, Tuple, Union, Dict
 from openai import OpenAI
 from utils.config import BASE_URL, DEFAULT_SYSTEM_PROMPT, get_api_key
 
@@ -18,9 +19,9 @@ class ModelSelector:
         self.base_url = base_url
         self.headers = {"Authorization": f"Bearer {self.api_key}"}
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-        self.models = {}  # Cache for models
+        self.models: dict = {}  # Cache for models
 
-    def get_available_models(self) -> dict:
+    def get_available_models(self) -> Dict:
         """
         Retrieves the available models from the cache or API if not available in cache.
 
@@ -34,7 +35,7 @@ class ModelSelector:
             )
         return self.models
 
-    def fetch_models_from_api(self) -> dict:
+    def fetch_models_from_api(self) -> Dict:
         """
         Fetches the available models from the API.
 
@@ -64,7 +65,7 @@ class ModelSelector:
         except IOError as e:
             print(f"Error saving models to file: {e}")
 
-    def load_models_from_file(self, filename: str) -> dict:
+    def load_models_from_file(self, filename: str) -> Dict:
         """
         Loads models from a JSON file.
 
@@ -86,18 +87,21 @@ class ModelSelector:
             return {}
 
     def _select_models(
-        self, num_models: int, model_selection: str, selected_models: list
-    ) -> list:
+        self,
+        num_models: int,
+        model_selection: str,
+        selected_models: Optional[List[str]],
+    ) -> List[str]:
         """
         Selects models based on the selection method.
 
         Args:
         - num_models (int): The number of models to select.
         - model_selection (str): The method of model selection.
-        - selected_models (list): A list of model names to compare if manual selection is chosen.
+        - selected_models (Optional[List[str]]): A list of model names to compare if manual selection is chosen.
 
         Returns:
-        - list: A list of selected model names.
+        - List[str]: A list of selected model names.
         """
         models = list(self.get_available_models().keys())
 
@@ -166,7 +170,7 @@ class ModelSelector:
         system_prompt: str = DEFAULT_SYSTEM_PROMPT,
         num_models: int = 2,
         model_selection: str = "random",
-        selected_models: list = None,
+        selected_models: Optional[List[str]] = None,
     ) -> None:
         """
         Compares the responses of multiple models to a given prompt.
@@ -176,7 +180,7 @@ class ModelSelector:
         - system_prompt (str): The system prompt.
         - num_models (int): The number of models to compare.
         - model_selection (str): The method of model selection.
-        - selected_models (list): A list of model names to compare if manual selection is chosen.
+        - selected_models (Optional[List[str]]): A list of model names to compare if manual selection is chosen.
         """
         if selected_models is None:
             selected_models = []
@@ -199,20 +203,24 @@ if __name__ == "__main__":
 
     model_selector = ModelSelector(base_url)
 
-    # Save models to a file
+    # Save available models to a file
     model_selector.save_models_to_file("models.json")
 
-    model_selection_method = (
-        input("Enter model selection method (random/manual): ").strip().lower()
-    )
-    if model_selection_method == "manual":
-        available_models = model_selector.get_available_models()
-        if not available_models:
-            print("No available models to select.")
-        else:
-            print("Available models:")
-            for model in available_models:
-                print(model)
+    # Get available models from the file
+    available_models = model_selector.get_available_models()
+    if not available_models:
+        print("No available models to select.")
+    else:
+        print("Available models:")
+        for model in available_models:
+            print(model)
+
+        # Get user input for model selection method
+        model_selection_method = (
+            input("Enter model selection method (random/manual): ").strip().lower()
+        )
+
+        if model_selection_method == "manual":
             selected_models_input = input("Enter model names (comma-separated): ")
             selected_models = [
                 model.strip()
@@ -222,10 +230,13 @@ if __name__ == "__main__":
             if not selected_models:
                 print("No valid models selected.")
             else:
+                # Compare selected models' responses
                 model_selector.compare_models(
                     prompt, model_selection="manual", selected_models=selected_models
                 )
-    elif model_selection_method == "random":
-        model_selector.compare_models(prompt)
-    else:
-        print("Invalid model selection method.")
+        elif model_selection_method == "random":
+            # Compare random models' responses
+            num_models = int(input("Enter number of random models to compare: "))
+            model_selector.compare_models(prompt, num_models=num_models)
+        else:
+            print("Invalid model selection method.")
