@@ -53,17 +53,16 @@ class LLMFeedback:
         if not content.correct_answer:
             return {"error": "No correct answer provided for validation."}
 
-        student_answer = content.student_work
-        correct_answer = content.correct_answer
-        prompt = f"Compare the student's answer '{student_answer}' with the correct answer '{correct_answer}'. Is the student's answer correct?"
+        prompt = self._generate_prompt(content)
         validation_content = self._make_request(prompt)
 
-        feedback = Feedback(
-            work_id=content.work_id,
-            feedback_type="validation",
-            content=validation_content["reposnse"],
-        )
-        self.db.add_feedback(feedback)
+        if "response" in validation_content:
+            feedback = Feedback(
+                work_id=content.work_id,
+                feedback_type="validation",
+                content=validation_content["reposnse"],
+            )
+            self.db.add_feedback(feedback)
         return validation_content
 
     def generate_suggested_enhancements(self, content):
