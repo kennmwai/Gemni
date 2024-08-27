@@ -7,7 +7,6 @@ from utils.config import BASE_URL, DEFAULT_SYSTEM_PROMPT, get_api_key
 
 
 class ModelSelector:
-
     def __init__(self, base_url: str = BASE_URL):
         """
         Initializes the ModelSelector with the base URL and API key.
@@ -28,8 +27,7 @@ class ModelSelector:
         - dict: A dictionary of available models.
         """
         try:
-            response = requests.get(f"{self.base_url}/models",
-                                    headers=self.headers)
+            response = requests.get(f"{self.base_url}/models", headers=self.headers)
             response.raise_for_status()
             return json.loads(response.text)
         except requests.RequestException as e:
@@ -64,11 +62,8 @@ class ModelSelector:
             selected_models = models[:num_models]
         elif model_selection == "manual":
             if selected_models is None:
-                raise ValueError(
-                    "models must be provided for manual model selection")
-            selected_models = [
-                model for model in selected_models if model in models
-            ]
+                raise ValueError("models must be provided for manual model selection")
+            selected_models = [model for model in selected_models if model in models]
         else:
             raise ValueError("Invalid model selection method")
 
@@ -76,29 +71,23 @@ class ModelSelector:
             try:
                 completion = self.client.chat.completions.create(
                     messages=[
-                        {
-                            "role": "system",
-                            "content": system_prompt
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        },
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt},
                     ],
                     model=model,
                 )
 
                 if completion.choices and completion.choices[0].message:
                     message = completion.choices[0].message.content
-                    self._print_model_response(model, system_prompt, prompt,
-                                               message)
+                    self._print_model_response(model, system_prompt, prompt, message)
                 else:
                     print(f"No response from model {model}")
             except Exception as e:
                 print(f"Error getting response from model {model}: {e}")
 
-    def _print_model_response(self, model: str, system_prompt: str,
-                              prompt: str, response: str) -> None:
+    def _print_model_response(
+        self, model: str, system_prompt: str, prompt: str, response: str
+    ) -> None:
         """
         Prints the response of a model to a given prompt.
 
@@ -120,18 +109,16 @@ if __name__ == "__main__":
 
     model_selector = ModelSelector(base_url)
 
-    model_selection_method = input(
-        "Enter model selection method (random/manual): ")
+    model_selection_method = input("Enter model selection method (random/manual): ")
     if model_selection_method == "manual":
         available_models = model_selector.get_available_models()
         print("Available models:")
         for model in available_models:
             print(model)
-        selected_models = input("Enter model names (comma-separated): ").split(
-            ",")
+        selected_models = input("Enter model names (comma-separated): ").split(",")
         selected_models = [model.strip() for model in selected_models]
-        model_selector.compare_models(prompt,
-                                      model_selection="manual",
-                                      selected_models=selected_models)
+        model_selector.compare_models(
+            prompt, model_selection="manual", selected_models=selected_models
+        )
     else:
         model_selector.compare_models(prompt)
