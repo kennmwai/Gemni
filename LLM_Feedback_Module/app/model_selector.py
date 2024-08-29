@@ -6,8 +6,12 @@ from typing import List, Optional, Dict
 from openai import OpenAI
 
 BASE_URL = "https://api.aimlapi.com"
-DEFAULT_SYSTEM_PROMPT = "You are an AI assistant that only responds with jokes."
+DEFAULT_SYSTEM_PROMPT = ("You are an AI assistant skilled in providing accurate and informative answers to questions. "
+                          "Your responses should be clear, concise, and based on factual information. Avoid speculation "
+                          "and ensure that each answer is well-supported by knowledge up to the current date. Always "
+                          "acknowledge the user's query and address it directly.")
 MODELS = "data/models.json"
+
 
 def get_api_key():
     api_key = os.getenv("AIML_API_KEY", "54a34a43333f47119e47424176f69cf8")
@@ -39,8 +43,7 @@ class ModelSelector:
         """
         if not self.models:  # If models are not loaded or cache is empty
             self.models = (
-                self._load_models_from_file(MODELS)
-                or self.fetch_models_from_api()
+                self._load_models_from_file(MODELS) or self.fetch_models_from_api()
             )
         return self.models
 
@@ -142,15 +145,15 @@ class ModelSelector:
         - str: The model response.
         """
         try:
-            completion = self.client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 model=model,
             )
-            if completion.choices:
-                return completion.choices[0].message.get("content", "")
+            if response.choices:
+                return response.choices[0].message.get("content", "")
             else:
                 return f"No response from model {model}"
         except Exception as e:

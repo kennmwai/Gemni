@@ -1,0 +1,63 @@
+{
+    "questions": [
+        {
+            "question": "What is the capital of France?",
+            "choices": ["Paris", "London", "Rome", "Berlin"],
+            "correct_answer": "Paris",
+            "type": "multiple_choice"
+        },
+        {
+            "question": "Which planet is known as the Red Planet?",
+            "choices": ["Earth", "Mars", "Jupiter", "Saturn"],
+            "correct_answer": "Mars",
+            "type": "multiple_choice"
+        },
+        {
+            "question": "What is the smallest planet in our solar system?",
+            "choices": ["Mercury", "Mars", "Venus", "Pluto"],
+            "correct_answer": "Mercury",
+            "type": "multiple_choice"
+        },
+        {
+            "question": "The Earth is the third planet from the Sun. True or False?",
+            "choices": ["True", "False"],
+            "correct_answer": "True",
+            "type": "true_false"
+        },
+        {
+            "question": "Name the chemical element with the symbol 'O'.",
+            "correct_answer": "Oxygen",
+            "type": "short_answer"
+        },
+        {
+            "question": "Who wrote 'To Kill a Mockingbird'?",
+            "choices": ["Harper Lee", "Mark Twain", "Ernest Hemingway", "J.D. Salinger"],
+            "correct_answer": "Harper Lee",
+            "type": "multiple_choice"
+        },
+        {
+            "question": "What is the largest ocean on Earth?",
+            "choices": ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"],
+            "correct_answer": "Pacific Ocean",
+            "type": "multiple_choice"
+        },
+        {
+            "question": "What year did the Titanic sink?",
+            "choices": ["1905", "1912", "1915", "1920"],
+            "correct_answer": "1912",
+            "type": "multiple_choice"
+        },
+        {
+            "question": "Is the Great Wall of China visible from space? True or False?",
+            "choices": ["True", "False"],
+            "correct_answer": "False",
+            "type": "true_false"
+        },
+        {
+            "question": "Which is the largest mammal in the world?",
+            "choices": ["Elephant", "Blue Whale", "Giraffe", "Hippopotamus"],
+            "correct_answer": "Blue Whale",
+            "type": "multiple_choice"
+        }
+    ]
+}
