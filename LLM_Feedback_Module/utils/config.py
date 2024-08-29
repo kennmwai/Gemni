@@ -3,7 +3,7 @@ import os
 
 
 def get_api_key():
-    api_key = os.getenv("AIML_API_KEY")
+    api_key = os.getenv("AIML_API_KEY", "54a34a43333f47119e47424176f69cf8")
     if not api_key:
         raise ValueError("AI/ML API KEY environment variable not set.")
     return api_key
