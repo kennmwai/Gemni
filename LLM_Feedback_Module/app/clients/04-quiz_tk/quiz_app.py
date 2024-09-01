@@ -166,3 +166,16 @@ class QuizApp:
             question.quiz_id = self.current_quiz.quiz_id
             return self.db.add_question(question)
         return None
+
+    def filter_questions_by_type(self, question_type: str) -> None:
+        """Filter questions based on the question type ('open_ended' or 'multiple_choice')."""
+        if self.current_quiz:
+            all_questions = self.db.get_questions_by_quiz_id(self.current_quiz.quiz_id)
+            if question_type == 'open_ended':
+                self.questions = [q for q in all_questions if q.is_open_ended]
+            elif question_type == 'multiple_choice':
+                self.questions = [q for q in all_questions if not q.is_open_ended]
+            else:
+                self.questions = all_questions
+        else:
+            logging.error("No quiz is currently active to filter questions.")

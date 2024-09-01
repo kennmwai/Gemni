@@ -14,6 +14,7 @@ QUIZZES_TABLE = """
 CREATE TABLE IF NOT EXISTS Quizzes (
     quiz_id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
+    quiz_type TEXT NOT NULL,
     description TEXT
 );
 """
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS Questions (
     question_text TEXT NOT NULL,
     correct_answer TEXT NOT NULL,
     choices TEXT NOT NULL,
+    question_type TEXT NOT NULL,  -- New field for question type
     is_open_ended BOOLEAN NOT NULL DEFAULT 0,
     FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id)
 );
@@ -41,10 +43,10 @@ CREATE TABLE IF NOT EXISTS Answers (
 );
 """
 
-
 @dataclass
 class Quiz:
     title: str
+    quiz_type: Optional[str] = None
     description: Optional[str] = None
     quiz_id: Optional[int] = None
 
@@ -55,6 +57,7 @@ class Question:
     question_text: str
     correct_answer: str
     choices: List[str]
+    question_type: str  # New field for question type
     is_open_ended: bool = False
     question_id: Optional[int] = None
 
@@ -113,8 +116,8 @@ class QuizDB:
 
         with self._db_connection() as conn:
             cursor = conn.cursor()
-            sql = "INSERT INTO Quizzes (title, description) VALUES (?, ?)"
-            cursor.execute(sql, (quiz.title, quiz.description))
+            sql = "INSERT INTO Quizzes (title, quiz_type, description) VALUES (?, ?, ?)"
+            cursor.execute(sql, (quiz.title, quiz.quiz_type, quiz.description))
             conn.commit()
             return cursor.lastrowid
 
@@ -123,8 +126,8 @@ class QuizDB:
         with self._db_connection() as conn:
             cursor = conn.cursor()
             sql = """INSERT INTO Questions
-                     (quiz_id, question_text, correct_answer, choices, is_open_ended)
-                     VALUES (?, ?, ?, ?, ?)"""
+                     (quiz_id, question_text, correct_answer, choices, question_type, is_open_ended)
+                     VALUES (?, ?, ?, ?, ?, ?)"""
             choices_json = json.dumps(question.choices)
             cursor.execute(
                 sql,
@@ -133,6 +136,7 @@ class QuizDB:
                     question.question_text,
                     question.correct_answer,
                     choices_json,
+                    question.question_type,
                     question.is_open_ended,
                 ),
             )
@@ -155,7 +159,7 @@ class QuizDB:
         """Retrieve a quiz by its ID."""
         with self._db_connection() as conn:
             cursor = conn.cursor()
-            sql = """SELECT title, description, quiz_id FROM Quizzes WHERE quiz_id = ?"""
+            sql = """SELECT title, quiz_type, description, quiz_id FROM Quizzes WHERE quiz_id = ?"""
             cursor.execute(sql, (quiz_id,))
             result = cursor.fetchone()
             return Quiz(*result) if result else None
@@ -164,7 +168,7 @@ class QuizDB:
         """Retrieve all quizzes."""
         with self._db_connection() as conn:
             cursor = conn.cursor()
-            sql = """SELECT title, description, quiz_id FROM Quizzes"""
+            sql = """SELECT title, quiz_type, description, quiz_id FROM Quizzes"""
             cursor.execute(sql,)
             return [Quiz(*row) for row in cursor.fetchall()]
 
@@ -176,11 +180,11 @@ class QuizDB:
             cursor.execute(sql)
             questions = []
             for row in cursor.fetchall():
-                question_id, quiz_id, question_text, correct_answer, choices_json, is_open_ended = row
+                question_id, quiz_id, question_text, correct_answer, choices_json, question_type, is_open_ended = row
                 choices = json.loads(choices_json)
                 questions.append(
                     Question(
-                        quiz_id, question_text, correct_answer, choices, is_open_ended, question_id
+                        quiz_id, question_text, correct_answer, choices, question_type, is_open_ended, question_id
                     )
                 )
             return questions
@@ -193,10 +197,10 @@ class QuizDB:
             cursor.execute(sql, (question_id,))
             result = cursor.fetchone()
             if result:
-                question_id, quiz_id, question_text, correct_answer, choices_json, is_open_ended = result
+                question_id, quiz_id, question_text, correct_answer, choices_json, question_type, is_open_ended = result
                 choices = json.loads(choices_json)
                 return Question(
-                    quiz_id, question_text, correct_answer, choices, is_open_ended, question_id
+                    quiz_id, question_text, correct_answer, choices, question_type, is_open_ended, question_id
                 )
             return None
 
@@ -208,11 +212,11 @@ class QuizDB:
             cursor.execute(sql, (quiz_id,))
             questions = []
             for row in cursor.fetchall():
-                question_id, quiz_id, question_text, correct_answer, choices_json, is_open_ended = row
+                question_id, quiz_id, question_text, correct_answer, choices_json, question_type, is_open_ended = row
                 choices = json.loads(choices_json)
                 questions.append(
                     Question(
-                        quiz_id, question_text, correct_answer, choices, is_open_ended, question_id
+                        quiz_id, question_text, correct_answer, choices, question_type, is_open_ended, question_id
                     )
                 )
             return questions
@@ -314,7 +318,7 @@ if __name__ == "__main__":
     db = QuizDB()
 
     # Add a quiz
-    quiz = Quiz(title="General Knowledge Quiz", description="A simple GK quiz")
+    quiz = Quiz(title="General Knowledge Quiz", quiz_type="open_ended", description="A simple GK quiz")
     quiz_id = db.add_quiz(quiz)
     print(f"Quiz ID: {quiz_id}")
     print("")
@@ -332,6 +336,7 @@ if __name__ == "__main__":
         question_text="What is the capital of France?",
         correct_answer="Paris",
         choices=["Paris", "London", "Rome", "Nairobi"],
+        question_type="multiple-choice"  # New field
     )
     question_id_1 = db.add_question(question_1)
     print(f"Question ID 1: {question_id_1}")
@@ -341,6 +346,7 @@ if __name__ == "__main__":
         question_text="What is 2 + 2?",
         correct_answer="4",
         choices=["3", "4", "5", "8"],
+        question_type="multiple-choice"  # New field
     )
     question_id_2 = db.add_question(question_2)
     print(f"Question ID 2: {question_id_2}")
@@ -355,6 +361,7 @@ if __name__ == "__main__":
             "Quantum Teleportation",
             "Quantum Entanglement",
         ],
+        question_type="multiple-choice"  # New field
     )
     question_id_3 = db.add_question(question_3)
     print(f"Question ID 3: {question_id_3}")
@@ -369,6 +376,7 @@ if __name__ == "__main__":
             "Quantum Tunneling",
             "Quantum Decoherence",
         ],
+        question_type="multiple-choice"  # New field
     )
     question_id_4 = db.add_question(question_4)
     print(f"Question ID 4: {question_id_4}")
@@ -379,6 +387,7 @@ if __name__ == "__main__":
         question_text="Describe the process of quantum teleportation.",
         correct_answer="Quantum Teleportation .... ",
         choices=[],  # No choices for open-ended questions
+        question_type="open-ended",  # New field
         is_open_ended=True
     )
     question_id_5 = db.add_question(question_5)
@@ -413,7 +422,8 @@ if __name__ == "__main__":
     for question in questions:
         print(f"Question: {question.question_text}")
         print(f"Choices: {', '.join(question.choices)}")
-        print(f"Correct Answer: {question.correct_answer}\n")
+        print(f"Correct Answer: {question.correct_answer}")
+        print(f"Question Type: {question.question_type}\n")
     print("")
 
     # Get a question by ID
@@ -441,13 +451,13 @@ if __name__ == "__main__":
     print("")
 
     # Update a quiz
-    updated_quiz = Quiz(
-        quiz_id=quiz_id,
-        title="Updated General Knowledge Quiz",
-        description="An updated GK quiz",
-    )
-    if db.update_quiz(updated_quiz):
-        print("Quiz updated successfully\n")
+    # updated_quiz = Quiz(
+    #     quiz_id=quiz_id,
+    #     title="Updated General Knowledge Quiz",
+    #     description="An updated GK quiz",
+    # )
+    # if db.update_quiz(updated_quiz):
+    #     print("Quiz updated successfully\n")
 
     # Delete a quiz
     # if db.delete_quiz(quiz_id):
